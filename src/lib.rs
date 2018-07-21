@@ -1,6 +1,64 @@
 #![feature(try_trait)]
 #![feature(trusted_len)]
 
+//! Joinery provides generic joining of iterables with separators. While it is
+//! primarily designed the typical use case of writing to a [writer][fmt::Write]
+//! or creating a [`String`] by joining a list of data with some kind of string
+//! separator (such as `", "`),  it is fully generic and can be used to combine
+//! any iterator or collection with any separator.
+//!
+//! # Examples
+//!
+//! Create a comma separated list:
+//!
+//! ```
+//! use joinery::Joinable;
+//!
+//! let result = [1, 2, 3, 4].iter().join_with(", ").to_string();
+//! assert_eq!(result, "1, 2, 3, 4")
+//! ```
+//!
+//! Create a newline separated list, using a python-style syntax (with the
+//! separator at the beginning of the expression):
+//!
+//! ```
+//! use joinery::Separator;
+//!
+//! let result = '\n'.separate(&[1, 2, 3]).to_string();
+//! assert_eq!(result, "1\n2\n3");
+//! ```
+//!
+//! Iterate over joins:
+//!
+//! ```
+//! use joinery::{Joinable, JoinItem};
+//! let join = ["some", "sample", "text"].iter().join_with(' ');
+//! let mut join_iter = join.iter();
+//!
+//! assert_eq!(join_iter.next(), Some(JoinItem::Element(&"some")));
+//! assert_eq!(join_iter.next(), Some(JoinItem::Separator(&' ')));
+//! assert_eq!(join_iter.next(), Some(JoinItem::Element(&"sample")));
+//! assert_eq!(join_iter.next(), Some(JoinItem::Separator(&' ')));
+//! assert_eq!(join_iter.next(), Some(JoinItem::Element(&"text")));
+//! assert_eq!(join_iter.next(), None);
+//! ```
+//!
+//! Display the first 5 consecutive multiples of 1-5 on separate lines:
+//!
+//! ```
+//! use joinery::Joinable;
+//! let multiples = 1..=5;
+//! let ranges = multiples.map(|n| (n..).step_by(n).take(5));
+//!
+//! let lines = ranges.map(|range| range.join_with(", "));
+//! let result = lines.join_with('\n').to_string();
+//! assert_eq!(result, "1, 2, 3, 4, 5\n\
+//!                     2, 4, 6, 8, 10\n\
+//!                     3, 6, 9, 12, 15\n\
+//!                     4, 8, 12, 16, 20\n\
+//!                     5, 10, 15, 20, 25");
+//! ```
+
 use std::fmt::{self, Debug, Display, Formatter};
 use std::iter::Peekable;
 use std::iter::{FusedIterator, TrustedLen};
@@ -54,6 +112,11 @@ where
 /// ```
 ///
 /// By default, [`Separator`] is implemented for [`char`] and [`&str`][str].
+///
+/// Note that any [`Sized`] type can be used as a separator in a [`Join`] when
+/// creating one via [`Joinable::join_with`]. The [`Separator`] trait and its
+/// default implementations on [`char`] and [`&str`][str] are provided simply as
+/// a convenience.
 pub trait Separator: Sized {
     /// Combine a [`Separator`] with a [`Joinable`] to create a [`Join`].
     fn separate<T: Joinable>(self, iter: T) -> Join<T::IntoIter, Self> {
@@ -89,6 +152,9 @@ impl Separator for char {}
 /// write!(buffer, "Numbers: {}", join);
 ///
 /// assert_eq!(buffer, "Numbers: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9");
+///
+/// // Don't forget that `Display` gives to `ToString` for free!
+/// assert_eq!(join.to_string(), "0, 1, 2, 3, 4, 5, 6, 7, 8, 9")
 /// ```
 ///
 /// Iterating via [`IntoIterator`]:
@@ -137,7 +203,7 @@ impl<I, S> Join<I, S> {
 }
 
 impl<I: Clone, S> Join<I, S> {
-    /// Create a partial clone of this `self`. A partial clone is a [`Join`]
+    /// Create a partial clone of `self`. A partial clone is a [`Join`] instance
     /// which contains a cloned iterator, but a reference to the original
     /// separator. This is useful in cases where the iterator needs to be
     /// consumed, but there's no need to perform a full clone of the separator
@@ -235,7 +301,7 @@ impl<T, S> JoinItem<T, S> {
 }
 
 /// Get a reference to a common type `R` from a [`JoinItem`], in the case where
-/// both `T` and `S` implement `AsRef<R>`
+/// both `T` and `S` implement [`AsRef<R>`][AsRef]
 impl<T, S, R> AsRef<R> for JoinItem<T, S>
 where
     T: AsRef<R>,
@@ -572,12 +638,10 @@ mod tests {
             join_iter.next();
 
             let rest: Vec<_> = join_iter.collect();
-            assert_eq!(rest, [
-                Separator(' '),
-                Element(1),
-                Separator(' '),
-                Element(2),
-            ]);
+            assert_eq!(
+                rest,
+                [Separator(' '), Element(1), Separator(' '), Element(2),]
+            );
         }
 
         #[test]
@@ -585,11 +649,9 @@ mod tests {
             let content = [1, 2, 3];
             let join_iter = content.iter().join_with(4).into_iter();
 
-            let sum = join_iter.fold(0, |accum, next| {
-                match next {
-                    Element(el) => accum + el,
-                    Separator(sep) => accum + sep,
-                }
+            let sum = join_iter.fold(0, |accum, next| match next {
+                Element(el) => accum + el,
+                Separator(sep) => accum + sep,
             });
 
             assert_eq!(sum, 14);
@@ -604,11 +666,9 @@ mod tests {
             join_iter.next();
             join_iter.next();
 
-            let sum = join_iter.fold(0, |accum, next| {
-                match next {
-                    Element(el) => accum + el,
-                    Separator(sep) => accum + sep,
-                }
+            let sum = join_iter.fold(0, |accum, next| match next {
+                Element(el) => accum + el,
+                Separator(sep) => accum + sep,
             });
 
             assert_eq!(sum, 9);
