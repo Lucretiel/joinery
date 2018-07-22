@@ -5,7 +5,9 @@
 //! primarily designed the typical use case of writing to a [writer][fmt::Write]
 //! or creating a [`String`] by joining a list of data with some kind of string
 //! separator (such as `", "`),  it is fully generic and can be used to combine
-//! any iterator or collection with any separator.
+//! any iterator or collection with any separator. In this way it is intended
+//! to supercede the existing [`SliceConcatExt::join`] method, which only works
+//! on slices and can only join with a matching type.
 //!
 //! # Examples
 //!
@@ -32,6 +34,8 @@
 //!
 //! ```
 //! use joinery::{Joinable, JoinItem};
+//!
+//! // Note that the collection values and the separator can be different types
 //! let join = ["some", "sample", "text"].iter().join_with(' ');
 //! let mut join_iter = join.iter();
 //!
@@ -64,24 +68,28 @@ use std::iter::Peekable;
 use std::iter::{FusedIterator, TrustedLen};
 use std::ops::Try;
 
-/// A trait for converting iterables and collections into [`Join`] objects.
+/// A trait for converting iterables and collections into [`Join`] instances.
 ///
-/// This trait should be implemented for any collection type which can be joined
-/// with a separator. It is automatically implemented for all [`IntoIterator`]
-/// types, which should cover most use cases.
-///
-/// ```
-/// use joinery::Joinable;
-///
-/// let parts = ["this", "is", "a", "sentence"];
-/// let join = parts.iter().join_with(" ");
-/// assert_eq!(join.to_string(), "this is a sentence");
-/// ```
+/// This trait is the primary way to create [`Join`] instances. It is
+/// implemented for all [`IntoIterator`] types. See
+/// [`join_with`][Joinable::join_with] for an example of its usage.
 pub trait Joinable {
     /// The iterator type which will be used in the join.
     type IntoIter;
 
     /// Combine this object with a separator to create a new [`Join`] instance.
+    /// Note that the separator does not have to share the same type as the
+    /// iterator's values.
+    ///
+    ///  # Examples
+    ///
+    /// ```
+    /// use joinery::Joinable;
+    ///
+    /// let parts = vec!["this", "is", "a", "sentence"];
+    /// let join = parts.join_with(' ');
+    /// assert_eq!(join.to_string(), "this is a sentence");
+    /// ```
     fn join_with<S>(self, sep: S) -> Join<Self::IntoIter, S>;
 }
 
@@ -102,7 +110,7 @@ where
 /// A trait for using a separator to produce a [`Join`].
 ///
 /// This trait provides a more python-style interface for performing joins.
-/// Rather than do `collection.join_with`, you do:
+/// Rather than do [`collection.join_with`][Joinable::join_with], you do:
 ///
 /// ```
 /// use joinery::Separator;
@@ -113,13 +121,16 @@ where
 ///
 /// By default, [`Separator`] is implemented for [`char`] and [`&str`][str].
 ///
-/// Note that any [`Sized`] type can be used as a separator in a [`Join`] when
+/// Note that any type can be used as a separator in a [`Join`] when
 /// creating one via [`Joinable::join_with`]. The [`Separator`] trait and its
-/// default implementations on [`char`] and [`&str`][str] are provided simply as
+/// implementations on [`char`] and [`&str`][str] are provided simply as
 /// a convenience.
-pub trait Separator: Sized {
+pub trait Separator {
     /// Combine a [`Separator`] with a [`Joinable`] to create a [`Join`].
-    fn separate<T: Joinable>(self, iter: T) -> Join<T::IntoIter, Self> {
+    fn separate<T: Joinable>(self, iter: T) -> Join<T::IntoIter, Self>
+    where
+        Self: Sized,
+    {
         iter.join_with(self)
     }
 }
@@ -137,7 +148,7 @@ impl Separator for char {}
 /// be written to a [writer][fmt::Write] or converted into a [`String`].
 ///
 ///
-/// # Examples:
+/// # Examples
 ///
 /// Writing via [`Display`]:
 ///
@@ -227,8 +238,8 @@ where
     I::Item: Display,
 {
     /// Consume `self`, writing it to a [`Formatter`]. The [`Display`] trait
-    /// requires `&self`, so this method is provided in the event that you
-    /// don't want to clone the iterator when writing it to a formatter.
+    /// requires `&self`, so this method is provided in the event that you can't
+    /// or don't want to clone the underlying iterator.
     pub fn consume_fmt(self, f: &mut Formatter) -> fmt::Result {
         let mut iter = self.iter;
         let sep = self.sep;
@@ -243,6 +254,76 @@ where
                 })
             })
             .unwrap_or(Ok(()))
+    }
+}
+
+impl<I, S> Join<I, S>
+where
+    I: Iterator,
+    S: AsRef<str>,
+    I::Item: AsRef<str>,
+{
+    /// Consume `self`, writing it to a [`String`]. The [`ToString`] trait
+    /// reqiures `&self`, so this method is provided in the event that you can't
+    /// or don't want to clone the underlying interator. It also provides
+    /// some minor optimizations, like conservatively [reserving][String::reserve]
+    /// space in `target` and using [`target.push_str`] directly.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if it can determine ahead of time that the
+    /// amount of space required in `target` will overflow a [`usize`]
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use joinery::{Joinable};
+    ///
+    /// let mut target = "Numbers: ".into();
+    /// let content = vec!["1", "2", "3"];
+    /// content.join_with(", ").consume_append_to_string(&mut target);
+    /// assert_eq!(target, "Numbers: 1, 2, 3")
+    /// ```
+    // TODO: deduplicate this and consume_fmt
+    pub fn consume_append_to_string(self, target: &mut String) {
+        let mut iter = self.iter;
+        let sep = self.sep.as_ref();
+
+        // Estimate the size. We don't want to iterate the iterator greedily,
+        // so we just look at the sum of the separators + assume 1 byte per
+        // element.
+        let iter_min_size = iter.size_hint().0;
+
+        // The size of the separators is not an estimate, so panic if it overflows.
+        let sep_size = iter_min_size.saturating_sub(1)
+            .checked_mul(sep.len())
+            .expect("unexpected usize overflow");
+
+        // If the add overflows, that's not a *guarentee* that it will overflow
+        // the append, because our assumption of 1 byte per element may
+        // innaccurate.
+        let size_est = sep_size
+            .checked_add(iter_min_size)
+            .unwrap_or(sep_size);
+
+        target.reserve(size_est);
+
+        iter.next().map(move |first| {
+            target.push_str(first.as_ref());
+
+            iter.for_each(|element| {
+                target.push_str(sep);
+                target.push_str(element.as_ref());
+            })
+        });
+    }
+
+    /// Consume `self`, converting it to a [`String`]. See
+    /// [`consume_append_to_string`][Join::consume_append_to_string] for details.
+    pub fn consume_to_string(self) -> String {
+        let mut string = String::new();
+        self.consume_append_to_string(&mut string);
+        string
     }
 }
 
@@ -268,8 +349,7 @@ impl<I: Iterator, S: Clone> IntoIterator for Join<I, S> {
 
 impl<I: Iterator + Clone, S> Join<I, S> {
     /// Create an [iterator][JoinIter] for this [`Join`]. This iterator uses
-    /// a clone of the underlying [`Join`] iterator, but a reference to the
-    /// separator.
+    /// a clone of the underlying iterator, but a reference to the separator.
     pub fn iter(&self) -> JoinIter<I, &S> {
         self.partial_clone().into_iter()
     }
@@ -333,10 +413,106 @@ impl<T: Display, S: Display> Display for JoinItem<T, S> {
 /// of the separator while iterating, but also keep in mind that in most cases
 /// the [`JoinItem`] instance will have a trivially cloneable reference to the
 /// separator, rather than the separator itself.
+///
+/// # Examples
+///
+/// Via [`IntoIterator`]:
+///
+/// ```
+/// use joinery::{Joinable, JoinItem};
+///
+/// let join = vec![1, 2, 3].join_with(" ");
+/// let mut join_iter = join.into_iter();
+///
+/// assert_eq!(join_iter.next(), Some(JoinItem::Element(1)));
+/// assert_eq!(join_iter.next(), Some(JoinItem::Separator(" ")));
+/// assert_eq!(join_iter.next(), Some(JoinItem::Element(2)));
+/// assert_eq!(join_iter.next(), Some(JoinItem::Separator(" ")));
+/// assert_eq!(join_iter.next(), Some(JoinItem::Element(3)));
+/// assert_eq!(join_iter.next(), None);
+/// ```
+///
+/// Via [`.iter()`][Join::iter]
+///
+/// ```
+/// use joinery::{Joinable, JoinItem};
+///
+/// let join = vec![1, 2, 3].join_with(" ");
+/// let mut join_iter = join.iter();
+///
+/// // Note that using .iter() produces references to the separator, rather than clones.
+/// assert_eq!(join_iter.next(), Some(JoinItem::Element(1)));
+/// assert_eq!(join_iter.next(), Some(JoinItem::Separator(&" ")));
+/// assert_eq!(join_iter.next(), Some(JoinItem::Element(2)));
+/// assert_eq!(join_iter.next(), Some(JoinItem::Separator(&" ")));
+/// assert_eq!(join_iter.next(), Some(JoinItem::Element(3)));
+/// assert_eq!(join_iter.next(), None);
+/// ```
 pub struct JoinIter<Iter: Iterator, Sep> {
     iter: Peekable<Iter>,
     sep: Sep,
     next_sep: bool,
+}
+
+impl<I: Iterator, S> JoinIter<I, S> {
+    /// Check if the next iteration of this iterator will (try to) return a
+    /// separator. Note that this does not check if the underlying iterator is
+    /// empty, so the next `next` call could still return `None`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use joinery::{Joinable, JoinItem};
+    ///
+    /// let mut join_iter = (0..3).join_with(", ").into_iter();
+    ///
+    /// assert_eq!(join_iter.is_sep_next(), false);
+    /// join_iter.next();
+    /// assert_eq!(join_iter.is_sep_next(), true);
+    /// join_iter.next();
+    /// assert_eq!(join_iter.is_sep_next(), false);
+    /// ```
+    #[inline]
+    pub fn is_sep_next(&self) -> bool {
+        self.next_sep
+    }
+
+    /// Get a reference to the separator.
+    #[inline]
+    pub fn sep(&self) -> &S {
+        &self.sep
+    }
+
+    /// Peek at what the next element in the iterator will be without consuming
+    /// it. Note that this interface is similar, but not identical, to
+    /// [`Peekable::peek`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use joinery::{Joinable, JoinItem};
+    ///
+    /// let mut join_iter = (0..3).join_with(", ").into_iter();
+    ///
+    /// assert_eq!(join_iter.peek(), Some(JoinItem::Element(&0)));
+    /// assert_eq!(join_iter.next(), Some(JoinItem::Element(0)));
+    /// assert_eq!(join_iter.peek(), Some(JoinItem::Separator(&", ")));
+    /// assert_eq!(join_iter.next(), Some(JoinItem::Separator(", ")));
+    /// assert_eq!(join_iter.peek(), Some(JoinItem::Element(&1)));
+    /// assert_eq!(join_iter.next(), Some(JoinItem::Element(1)));
+    /// ```
+    pub fn peek(&mut self) -> Option<JoinItem<&I::Item, &S>> {
+        let next_sep = self.next_sep;
+        let sep = &self.sep;
+
+        self.iter.peek().map(move |element| {
+            if next_sep {
+                JoinItem::Separator(sep)
+            } else {
+                JoinItem::Element(element)
+            }
+        })
+    }
 }
 
 impl<I, S> Debug for JoinIter<I, S>
@@ -410,17 +586,20 @@ fn join_size(iter_size: usize, next_sep: bool) -> Option<usize> {
 impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
     type Item = JoinItem<I::Item, S>;
 
+    /// Advance to the next item in the Join. This will either be the next
+    /// element in the underlying iterator, or a clone of the separator.
     fn next(&mut self) -> Option<Self::Item> {
-        if self.next_sep {
-            if self.iter.peek().is_some() {
-                self.next_sep = false;
-                Some(JoinItem::Separator(self.sep.clone()))
-            } else {
-                None
-            }
+        let sep = &self.sep;
+        let next_sep = &mut self.next_sep;
+
+        if *next_sep {
+            self.iter.peek().map(|_| {
+                *next_sep = false;
+                JoinItem::Separator(sep.clone())
+            })
         } else {
             self.iter.next().map(|element| {
-                self.next_sep = true;
+                *next_sep = true;
                 JoinItem::Element(element)
             })
         }
