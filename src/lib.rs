@@ -638,7 +638,7 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
             match func(accum, sep).into_result() {
                 Err(err) => {
                     *next_sep = false;
-                    return Try::from_error(err);
+                    Try::from_error(err)
                 },
                 Ok(accum) => func(accum, JoinItem::Element(element)),
             }
