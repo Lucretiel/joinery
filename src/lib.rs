@@ -199,14 +199,6 @@ impl<I, S> Join<I, S> {
     pub fn underlying_iter(&self) -> &I {
         &self.iter
     }
-    /// Consume `self` and return the underlying iterator.
-    pub fn extract_iter(self) -> I {
-        self.iter
-    }
-    /// Consume `self` and return the separator.
-    pub fn extract_sep(self) -> S {
-        self.sep
-    }
     /// Consume `self` and return the separator and underlying iterator.
     pub fn extract_parts(self) -> (I, S) {
         (self.iter, self.sep)
