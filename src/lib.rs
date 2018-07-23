@@ -633,18 +633,16 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
         let next_sep = &mut self.next_sep;
         let sep = &self.sep;
 
-        let result = self.iter.try_fold(accum, move |accum, element| {
+        self.iter.try_fold(accum, move |accum, element| {
             let sep = JoinItem::Separator(sep.clone());
-            let accum = match func(accum, sep).into_result() {
-                Ok(value) => value,
+            match func(accum, sep).into_result() {
                 Err(err) => {
                     *next_sep = false;
                     return Try::from_error(err);
-                }
-            };
-            func(accum, JoinItem::Element(element))
-        });
-        result
+                },
+                Ok(accum) => func(accum, JoinItem::Element(element)),
+            }
+        })
     }
 
     fn fold<B, F>(self, init: B, mut func: F) -> B
