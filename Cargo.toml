@@ -4,3 +4,7 @@ version = "0.1.0"
 authors = ["Nathan West <Lucretiel@gmail.com>"]
 
 [dependencies]
+
+[features]
+trusted_len = []
+try_fold = []

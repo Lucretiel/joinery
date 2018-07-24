@@ -1,5 +1,5 @@
-#![feature(try_trait)]
-#![feature(trusted_len)]
+#![cfg_attr(feature = "try_fold", feature(try_trait))]
+#![cfg_attr(feature = "trusted_len", feature(trusted_len))]
 
 //! Joinery provides generic joining of iterables with separators. While it is
 //! primarily designed the typical use case of writing to a [writer][fmt::Write]
@@ -65,8 +65,13 @@
 
 use std::fmt::{self, Debug, Display, Formatter};
 use std::iter::Peekable;
-use std::iter::{FusedIterator, TrustedLen};
+use std::iter::{FusedIterator};
+
+#[cfg(feature = "try_fold")]
 use std::ops::Try;
+
+#[cfg(feature = "trusted_len")]
+use std::iter::TrustedLen;
 
 /// A trait for converting iterables and collections into [`Join`] instances.
 ///
@@ -605,6 +610,7 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
         )
     }
 
+    #[cfg(feature = "try_fold")]
     fn try_fold<B, F, R>(&mut self, init: B, mut func: F) -> R
     where
         F: FnMut(B, Self::Item) -> R,
@@ -661,6 +667,8 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
 }
 
 impl<I: FusedIterator, S: Clone> FusedIterator for JoinIter<I, S> {}
+
+#[cfg(feature = "trusted_len")]
 unsafe impl<I: TrustedLen, S: Clone> TrustedLen for JoinIter<I, S> {}
 
 // Can't implement DoubleSidedIterator. While the JoinIter is plainly reversible,
