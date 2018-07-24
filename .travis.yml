@@ -19,7 +19,3 @@ matrix:
       env: FEATURES="try_fold trusted_len"
     - rust: beta
       env: FEATURES="try_fold trusted_len"
-
-os:
-  - linux
-  - osx
