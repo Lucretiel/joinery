@@ -854,5 +854,19 @@ mod tests {
 
             assert_eq!(sum, 9);
         }
+
+        #[test]
+        fn try_fold() {
+            let content = [1, 2, 0, 3];
+            let mut join_iter = content.iter().join_with(1).into_iter();
+
+            let result = join_iter.try_fold(0, |accum, next| match next {
+                Separator(sep) => Ok(accum + sep),
+                Element(el) if *el == 0 => Err(accum),
+                Element(el) => Ok(accum + el),
+            });
+
+            assert_eq!(result, Err(5));
+        }
     }
 }
