@@ -1,0 +1,25 @@
+language: rust
+
+rust:
+  - stable
+  - beta
+  - nightly
+
+env:
+  - FEATURES="try_fold trusted_len"
+  - FEATURES=""
+
+script:
+  - cargo test --verbose --features "$FEATURES"
+
+matrix:
+  fast_finish: true
+  exclude:
+    - rust: stable
+      env: FEATURES="try_fold trusted_len"
+    - rust: beta
+      env: FEATURES="try_fold trusted_len"
+
+os:
+  - linux
+  - osx
