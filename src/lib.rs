@@ -52,7 +52,7 @@
 //! ```
 //! use joinery::Joinable;
 //! let multiples = 1..=5;
-//! let ranges = multiples.map(|n| (n..).step_by(n).take(5));
+//! let ranges = multiples.map(|m| (1..=5).map(move |n| n * m));
 //!
 //! let lines = ranges.map(|range| range.join_with(", "));
 //! let result = lines.join_with('\n').to_string();
@@ -736,7 +736,7 @@ mod tests {
         use Joinable;
 
         let result = (1..=5)
-            .map(|step| (0..).step_by(step).take(5).join_with(", "))
+            .map(|m| (0..5).map(move |n| n * m).join_with(", "))
             .join_with("\n")
             .to_string();
 
