@@ -676,6 +676,10 @@ unsafe impl<I: TrustedLen, S: Clone> TrustedLen for JoinIter<I, S> {}
 
 // TODO: implement ExactSizeIterator. Are we allowed to panic if the size is too long?
 
+pub mod prelude {
+    pub use {Joinable, Separator};
+}
+
 #[cfg(test)]
 mod tests {
     macro_rules! join_test {
