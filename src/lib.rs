@@ -644,12 +644,14 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
         F: FnMut(B, Self::Item) -> R,
         R: Try<Ok = B>,
     {
+        let mut elements = self.iter.by_ref().map(JoinItem::Element);
+
         let accum = if !self.next_sep {
-            match self.iter.next() {
+            match elements.next() {
                 None => return Try::from_ok(init),
                 Some(element) => {
                     self.next_sep = true;
-                    func(init, JoinItem::Element(element))?
+                    func(init, element)?
                 }
             }
         } else {
@@ -659,14 +661,14 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
         let next_sep = &mut self.next_sep;
         let sep = &self.sep;
 
-        self.iter.try_fold(accum, move |accum, element| {
+        elements.try_fold(accum, move |accum, element| {
             let sep = JoinItem::Separator(sep.clone());
             match func(accum, sep).into_result() {
                 Err(err) => {
                     *next_sep = false;
                     Try::from_error(err)
                 }
-                Ok(accum) => func(accum, JoinItem::Element(element)),
+                Ok(accum) => func(accum, element),
             }
         })
     }
@@ -675,13 +677,13 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
     where
         F: FnMut(B, Self::Item) -> B,
     {
-        let mut iter = self.iter;
+        let mut iter = self.iter.map(JoinItem::Element);
         let sep = self.sep;
 
         let accum = if !self.next_sep {
             match iter.next() {
                 None => return init,
-                Some(element) => func(init, JoinItem::Element(element)),
+                Some(element) => func(init, element),
             }
         } else {
             init
@@ -689,7 +691,7 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
 
         iter.fold(accum, move |accum, element| {
             let accum = func(accum, JoinItem::Separator(sep.clone()));
-            func(accum, JoinItem::Element(element))
+            func(accum, element)
         })
     }
 }
@@ -704,6 +706,7 @@ unsafe impl<I: TrustedLen, S: Clone> TrustedLen for JoinIter<I, S> {}
 
 // TODO: implement ExactSizeIterator. Are we allowed to panic if the size is too long?
 
+/// The joinery prelude
 pub mod prelude {
     pub use {Joinable, Separator};
 }
