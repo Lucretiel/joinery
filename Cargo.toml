@@ -2,9 +2,17 @@
 name = "joinery"
 version = "0.1.0"
 authors = ["Nathan West <Lucretiel@gmail.com>"]
+readme = "README.md"
+license = "MIT"
+
+repository = "https://github.com/Lucretiel/joinery"
+
+[badges]
+travis-ci = { repository = "Lucretiel/joinery" }
 
 [dependencies]
 
 [features]
+# These features are performance-enhancing but use nightly-only rust.
 trusted_len = []
 try_fold = []

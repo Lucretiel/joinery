@@ -64,8 +64,8 @@
 //! ```
 
 use std::fmt::{self, Debug, Display, Formatter};
+use std::iter::FusedIterator;
 use std::iter::Peekable;
-use std::iter::{FusedIterator};
 
 #[cfg(feature = "try_fold")]
 use std::ops::Try;
@@ -107,7 +107,7 @@ where
     fn join_with<S>(self, sep: S) -> Join<Self::IntoIter, S> {
         Join {
             iter: self.into_iter(),
-            sep: sep,
+            sep,
         }
     }
 }
@@ -286,33 +286,35 @@ where
         let mut iter = self.iter;
         let sep = self.sep.as_ref();
 
-        // Estimate the size. We don't want to iterate the iterator greedily,
-        // so we just look at the sum of the separators + assume 1 byte per
-        // element.
-        let iter_min_size = iter.size_hint().0;
+        if let Some(first) = iter.next() {
+            // Estimate the size. We can't iterate the iterator greedily, so we
+            // just look at the sum of the separators + assume 1 byte
+            // per element.
+            let iter_min_size = iter.size_hint().0;
 
-        // The size of the separators is not an estimate, so panic if it overflows.
-        let sep_size = iter_min_size.saturating_sub(1)
-            .checked_mul(sep.len())
-            .expect("unexpected usize overflow");
+            // The size of the separators is not an estimate, so panic
+            // if it overflows.
+            let sep_size = iter_min_size
+                .checked_mul(sep.len())
+                .expect("unexpected usize overflow");
 
-        // If the add overflows, that's not a *guarentee* that it will overflow
-        // the append, because our assumption of 1 byte per element may
-        // innaccurate.
-        let size_est = sep_size
-            .checked_add(iter_min_size)
-            .unwrap_or(sep_size);
+            // If the add overflows, that's not a *guarentee* that i
+            // will overflow the append, because our assumption of 1 byte
+            // per element may innaccurate.
+            let size_est = sep_size
+                .checked_add(iter_min_size)
+                .unwrap_or(sep_size)
+                .checked_add(1)
+                .unwrap_or(sep_size);
 
-        target.reserve(size_est);
-
-        iter.next().map(move |first| {
+            target.reserve(size_est);
             target.push_str(first.as_ref());
 
-            iter.for_each(|element| {
+            iter.for_each(move |element| {
                 target.push_str(sep);
                 target.push_str(element.as_ref());
-            })
-        });
+            });
+        };
     }
 
     /// Consume `self`, converting it to a [`String`]. See
@@ -480,7 +482,7 @@ impl<I: Iterator, S> JoinIter<I, S> {
         &self.sep
     }
 
-    /// Peek at what the next element in the iterator will be without consuming
+    /// Peek at what the next item in the iterator will be without consuming
     /// it. Note that this interface is similar, but not identical, to
     /// [`Peekable::peek`].
     ///
@@ -509,6 +511,32 @@ impl<I: Iterator, S> JoinIter<I, S> {
                 JoinItem::Element(element)
             }
         })
+    }
+
+    /// Peek at what the next non-separator item in the iterator will be
+    /// without consuming it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use joinery::{Joinable, JoinItem};
+    ///
+    /// let mut join_iter = vec!["This", "is", "a", "sentence"].join_with(' ').into_iter();
+    ///
+    /// assert_eq!(join_iter.peek_element(), Some(&"This"));
+    /// assert_eq!(join_iter.peek(), Some(JoinItem::Element(&"This")));
+    /// assert_eq!(join_iter.next(), Some(JoinItem::Element("This")));
+    ///
+    /// assert_eq!(join_iter.peek_element(), Some(&"is"));
+    /// assert_eq!(join_iter.peek(), Some(JoinItem::Separator(&' ')));
+    /// assert_eq!(join_iter.next(), Some(JoinItem::Separator(' ')));
+    ///
+    /// assert_eq!(join_iter.peek_element(), Some(&"is"));
+    /// assert_eq!(join_iter.peek(), Some(JoinItem::Element(&"is")));
+    /// assert_eq!(join_iter.next(), Some(JoinItem::Element("is")));
+    /// ```
+    pub fn peek_element(&mut self) -> Option<&I::Item> {
+        self.iter.peek()
     }
 }
 
@@ -637,7 +665,7 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
                 Err(err) => {
                     *next_sep = false;
                     Try::from_error(err)
-                },
+                }
                 Ok(accum) => func(accum, JoinItem::Element(element)),
             }
         })
