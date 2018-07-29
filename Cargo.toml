@@ -5,10 +5,13 @@ authors = ["Nathan West <Lucretiel@gmail.com>"]
 readme = "README.md"
 license = "MIT"
 
+description = "A small crate for generically joining iterators with a separator"
+
 repository = "https://github.com/Lucretiel/joinery"
 
 [badges]
 travis-ci = { repository = "Lucretiel/joinery" }
+maintenance = { status = "actively-developed" }
 
 [dependencies]
 
