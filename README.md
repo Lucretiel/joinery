@@ -80,7 +80,3 @@ assert_eq!(iter.next(), Some(JoinItem::Element(&3)));
 ```
 
 See the [docs](https://docs.rs/joinery) for complete documentation, including many more examples.
-
-## Cargo features
-
-
