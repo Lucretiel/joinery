@@ -17,5 +17,4 @@ maintenance = { status = "actively-developed" }
 
 [features]
 # These features are performance-enhancing but use nightly-only rust.
-trusted_len = []
-try_fold = []
+nightly = []

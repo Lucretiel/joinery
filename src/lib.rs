@@ -1,5 +1,5 @@
-#![cfg_attr(feature = "try_fold", feature(try_trait))]
-#![cfg_attr(feature = "trusted_len", feature(trusted_len))]
+#![cfg_attr(feature = "nightly", feature(try_trait))]
+#![cfg_attr(feature = "nightly", feature(trusted_len))]
 
 //! Joinery provides generic joining of iterables with separators. While it is
 //! primarily designed the typical use case of writing to a [writer][fmt::Write]
@@ -28,6 +28,24 @@
 //!
 //! let result = '\n'.separate(&[1, 2, 3]).to_string();
 //! assert_eq!(result, "1\n2\n3");
+//! ```
+//!
+//! `write!` a comma-separated list:
+//!
+//! ```
+//! use joinery::Joinable;
+//! # use std::fmt::Write;
+//!
+//! let join = vec![1, 2, 3, 4, 5].join_with(", ");
+//!
+//! let mut result = String::new();
+//!
+//! write!(&mut result, "Numbers: {}", join);
+//! assert_eq!(result, "Numbers: 1, 2, 3, 4, 5");
+//!
+//! // Note that joins are stateless; they can be reused after writing
+//! let result2 = join.to_string();
+//! assert_eq!(result2, "1, 2, 3, 4, 5");
 //! ```
 //!
 //! Iterate over joins:
@@ -64,13 +82,12 @@
 //! ```
 
 use std::fmt::{self, Debug, Display, Formatter};
-use std::iter::FusedIterator;
-use std::iter::Peekable;
+use std::iter::{FusedIterator, Peekable};
 
-#[cfg(feature = "try_fold")]
+#[cfg(feature = "nightly")]
 use std::ops::Try;
 
-#[cfg(feature = "trusted_len")]
+#[cfg(feature = "nightly")]
 use std::iter::TrustedLen;
 
 /// A trait for converting iterables and collections into [`Join`] instances.
@@ -251,78 +268,6 @@ where
                 })
             })
             .unwrap_or(Ok(()))
-    }
-}
-
-impl<I, S> Join<I, S>
-where
-    I: Iterator,
-    S: AsRef<str>,
-    I::Item: AsRef<str>,
-{
-    /// Consume `self`, writing it to a [`String`]. The [`ToString`] trait
-    /// reqiures `&self`, so this method is provided in the event that you can't
-    /// or don't want to clone the underlying interator. It also provides
-    /// some minor optimizations, like conservatively [reserving][String::reserve]
-    /// space in `target` and using [`target.push_str`] directly.
-    ///
-    /// # Panics
-    ///
-    /// This function will panic if it can determine ahead of time that the
-    /// amount of space required in `target` will overflow a [`usize`]
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use joinery::{Joinable};
-    ///
-    /// let mut target = "Numbers: ".into();
-    /// let content = vec!["1", "2", "3"];
-    /// content.join_with(", ").consume_append_to_string(&mut target);
-    /// assert_eq!(target, "Numbers: 1, 2, 3")
-    /// ```
-    // TODO: deduplicate this and consume_fmt
-    pub fn consume_append_to_string(self, target: &mut String) {
-        let mut iter = self.iter;
-        let sep = self.sep.as_ref();
-
-        if let Some(first) = iter.next() {
-            // Estimate the size. We can't iterate the iterator greedily, so we
-            // just look at the sum of the separators + assume 1 byte
-            // per element.
-            let iter_min_size = iter.size_hint().0;
-
-            // The size of the separators is not an estimate, so panic
-            // if it overflows.
-            let sep_size = iter_min_size
-                .checked_mul(sep.len())
-                .expect("unexpected usize overflow");
-
-            // If the add overflows, that's not a *guarentee* that i
-            // will overflow the append, because our assumption of 1 byte
-            // per element may innaccurate.
-            let size_est = sep_size
-                .checked_add(iter_min_size)
-                .unwrap_or(sep_size)
-                .checked_add(1)
-                .unwrap_or(sep_size);
-
-            target.reserve(size_est);
-            target.push_str(first.as_ref());
-
-            iter.for_each(move |element| {
-                target.push_str(sep);
-                target.push_str(element.as_ref());
-            });
-        };
-    }
-
-    /// Consume `self`, converting it to a [`String`]. See
-    /// [`consume_append_to_string`][Join::consume_append_to_string] for details.
-    pub fn consume_to_string(self) -> String {
-        let mut string = String::new();
-        self.consume_append_to_string(&mut string);
-        string
     }
 }
 
@@ -586,6 +531,43 @@ where
     }
 }
 
+impl<I: Iterator, S: Clone> JoinIter<I, S> {
+    /// Convert the [`JoinItem`] elements of a [`JoinIter`] into some common
+    /// type, using [`Into`] The type should be one that both the iterator items
+    /// and the separator can be converted into via [`Into`]. Note that, because
+    /// [`Into`] is reflexive, this can be used in cases where the separator and
+    /// the item are the same type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use joinery::Joinable;
+    ///
+    /// // Use this function to aid with type inference
+    /// fn assert_str(lhs: Option<&str>, rhs: Option<&str>) {
+    ///     assert_eq!(lhs, rhs);
+    /// }
+    ///
+    /// let content = vec!["Hello", "World!"];
+    ///
+    /// let join = content.join_with(", ");
+    /// let mut iter = join.into_iter().normalize();
+    ///
+    /// assert_str(iter.next(), Some("Hello"));
+    /// assert_str(iter.next(), Some(", "));
+    /// assert_str(iter.next(), Some("World!"));
+    /// assert_str(iter.next(), None);
+    ///
+    ///
+    /// ```
+    pub fn normalize<R>(self) -> impl Iterator<Item=R>
+        where I::Item: Into<R>,
+        S: Into<R>,
+    {
+        self.map(|item| item.into())
+    }
+}
+
 /// Get the size of a [`JoinIter`], given the size of the underlying iterator. If
 /// next_sep is true, the next element in the [`JoinIter`] will be the separator.
 /// Return None in the event of an overflow. This logic is provided as a separate
@@ -638,7 +620,7 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
         )
     }
 
-    #[cfg(feature = "try_fold")]
+    #[cfg(feature = "nightly")]
     fn try_fold<B, F, R>(&mut self, init: B, mut func: F) -> R
     where
         F: FnMut(B, Self::Item) -> R,
@@ -698,11 +680,13 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
 
 impl<I: FusedIterator, S: Clone> FusedIterator for JoinIter<I, S> {}
 
-#[cfg(feature = "trusted_len")]
+#[cfg(feature = "nightly")]
 unsafe impl<I: TrustedLen, S: Clone> TrustedLen for JoinIter<I, S> {}
 
 // Can't implement DoubleSidedIterator. While the JoinIter is plainly reversible,
-// it doesn't appear to be possible to reliably track the state at both ends of the iterator.
+// it doesn't appear to be possible to reliably track the state at both ends of
+// the iterator. Would need to manually re-implement Peekable, and make it
+// double ended.
 
 // TODO: implement ExactSizeIterator. Are we allowed to panic if the size is too long?
 

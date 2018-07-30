@@ -9,7 +9,7 @@ env:
   global:
     secure: URqF1Joq3y3NpRdSdDuHHvXhAgaYNISVZS+xq8cM9LmQ7p4DHgnLR0cF3SPW8Ksb5R1iQp6JImw65rOwwUtmYzMBqIfA6CAl66gdwZVoxlrDhIRLEE80mfm4EF4CFM2Izvuqk8a5FwOF+J08ph8HLokfWVi7Qbf9DU6fLuf6RMsmDi3Kie3m7eZf4HVUy6c2D7ComTqWfZBd3nU0YXUOCH5hDVz1sUGCmIWpOZ8queGTLjJ4fgPbo+a7y8Lx4OO43qgcduV+Bzdr74Qq/TD6pesWfnf+mGOxChKin7MwhSJ+Rw4vmMEXpxKzZVKVhC/vEYNTtb5FLRvIuEtx45o7MSW6gBgFzMguqS6Dj0Iru5xE9tVyHXv+eb2XjJmP7Jl1JmxmKsdq9VfSWdZ6+DbH2A2cMLW6s+DET66ninTJSznT78Xnv53I9G+d95DA0+VZF0AAh9N0ZWkripr5ihWh3waLuO2/HVaDMMQMv0gb9vBC4dw/9lmUiJiOcqHmh1uc3+5e+eCbWFYGczqgiqEkhz2ZMAQOCfIco0krIbKe//fvk052XbgpGEXiCGjQInAOEwNYMfTrnsTe9edF8qXi5IStI6jFLmFgrbTRpxKp0ZEF9/M9uCisVfSbhVT3pyBQaXfR64tkj3pxd9eXH+AKrXAho61rVe8i+Yu2PTi/s7M=
   matrix:
-    - FEATURES="try_fold trusted_len"
+    - FEATURES="nightly"
     - FEATURES=""
 
 script:
@@ -19,6 +19,6 @@ matrix:
   fast_finish: true
   exclude:
   - rust: stable
-    env: FEATURES="try_fold trusted_len"
+    env: FEATURES="nightly"
   - rust: beta
-    env: FEATURES="try_fold trusted_len"
+    env: FEATURES="nightly"
