@@ -1,6 +1,6 @@
 [package]
 name = "joinery"
-version = "0.2.3"
+version = "1.0.0"
 authors = ["Nathan West <Lucretiel@gmail.com>"]
 readme = "README.md"
 license = "MIT"
