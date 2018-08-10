@@ -688,13 +688,6 @@ impl<I: FusedIterator, S: Clone> FusedIterator for JoinIter<I, S> {}
 #[cfg(feature = "nightly")]
 unsafe impl<I: TrustedLen, S: Clone> TrustedLen for JoinIter<I, S> {}
 
-// Can't implement DoubleSidedIterator. While the JoinIter is plainly reversible,
-// it doesn't appear to be possible to reliably track the state at both ends of
-// the iterator. Would need to manually re-implement Peekable, and make it
-// double ended.
-
-// TODO: implement ExactSizeIterator. Are we allowed to panic if the size is too long?
-
 /// The joinery prelude
 pub mod prelude {
     pub use {Joinable, Separator};
