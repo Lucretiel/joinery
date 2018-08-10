@@ -1,12 +1,10 @@
 [package]
 name = "joinery"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["Nathan West <Lucretiel@gmail.com>"]
 readme = "README.md"
 license = "MIT"
-
 description = "A small crate for generically joining iterators with a separator"
-
 repository = "https://github.com/Lucretiel/joinery"
 
 [badges]
@@ -18,3 +16,8 @@ maintenance = { status = "actively-developed" }
 [features]
 # These features are performance-enhancing but use nightly-only rust.
 nightly = []
+
+# docs.rs stuff
+[package.metadata.docs.rs]
+all-features = true
+# TODO: fork me on github banner
