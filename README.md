@@ -42,7 +42,7 @@ Note that, because nightly-only features are unstable, joinery can't make any st
 
 ## Overview
 
-Joinery provides joins over iterators. Put simply, a join is a combination of an iterator and a separator. The join then conceptually represents all the elemetns of the iterator, with the separator between each one.
+Joinery provides joins over iterators. Put simply, a join is a combination of an iterator and a separator. The join then conceptually represents all the elements of the iterator, with the separator between each one.
 
 You can create a join with the `join_with` method, which is defined for all `IntoIterator` types via the `Joinable` trait:
 
