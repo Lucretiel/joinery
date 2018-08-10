@@ -25,7 +25,7 @@ Add joinery to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-joinery = "0.2.1"
+joinery = "0.2.2"
 ```
 
 ### Nightly-only features
@@ -34,7 +34,7 @@ joinery supports various nightly-only optimization features, such as `iter::Trus
 
 ```toml
 [dependencies.joinery]
-version = "0.2.1"
+version = "0.2.2"
 features = ["nightly"]
 ```
 

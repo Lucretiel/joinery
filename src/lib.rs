@@ -258,16 +258,17 @@ where
         let mut iter = self.iter;
         let sep = self.sep;
 
-        iter.next()
-            .map(move |first| {
+        match iter.next() {
+            None => Ok(()),
+            Some(first) => {
                 first.fmt(f)?;
 
                 iter.try_for_each(move |element| {
                     sep.fmt(f)?;
                     element.fmt(f)
                 })
-            })
-            .unwrap_or(Ok(()))
+            }
+        }
     }
 }
 
@@ -334,7 +335,7 @@ where
     fn as_ref(&self) -> &R {
         match self {
             JoinItem::Element(el) => el.as_ref(),
-            JoinItem::Separator(el) => el.as_ref(),
+            JoinItem::Separator(sep) => sep.as_ref(),
         }
     }
 }
@@ -560,8 +561,9 @@ impl<I: Iterator, S: Clone> JoinIter<I, S> {
     ///
     ///
     /// ```
-    pub fn normalize<R>(self) -> impl Iterator<Item=R>
-        where I::Item: Into<R>,
+    pub fn normalize<R>(self) -> impl Iterator<Item = R>
+    where
+        I::Item: Into<R>,
         S: Into<R>,
     {
         self.map(|item| item.into())
@@ -614,10 +616,11 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         let (min, max) = self.iter.size_hint();
-        (
-            join_size(min, self.next_sep).unwrap_or(usize::max_value()),
-            max.and_then(|max| join_size(max, self.next_sep)),
-        )
+
+        let min = join_size(min, self.next_sep).unwrap_or(usize::max_value());
+        let max = max.and_then(|max| join_size(max, self.next_sep));
+
+        (min, max)
     }
 
     #[cfg(feature = "nightly")]
@@ -643,6 +646,8 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
         let next_sep = &mut self.next_sep;
         let sep = &self.sep;
 
+        // TODO: it's as-yet unclear if the iterator is left in a consistent
+        // state if `func` panics while processing the separator.
         elements.try_fold(accum, move |accum, element| {
             let sep = JoinItem::Separator(sep.clone());
             match func(accum, sep).into_result() {
