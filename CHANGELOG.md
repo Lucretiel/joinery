@@ -5,7 +5,9 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 This changelog was added after the release of 1.0.0; changes before that are left undocumented.
 
-## Unreleased
+## 1.1.0
+
+2018-08-23
 
 ### Added
 
@@ -24,7 +26,7 @@ This changelog was added after the release of 1.0.0; changes before that are lef
 - Small documentation fix (#12)
 - Added README badges
 
-## 1.0
+## 1.0.0
 
 2018-08-10
 

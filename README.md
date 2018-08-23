@@ -4,7 +4,7 @@
 
 [![Crates.io](https://img.shields.io/crates/d/rustc-serialize.svg?logo=rust)](https://crates.io/crates/joinery)
 
-[![docs.rs](https://img.shields.io/badge/docs.rs-1.0.0-blue.svg)](https://docs.rs/joinery)
+[![docs.rs](https://img.shields.io/badge/docs.rs-1.1.0-blue.svg)](https://docs.rs/joinery)
 
 [![Github commits (since latest release)](https://img.shields.io/github/commits-since/Lucretiel/joinery/release.svg?label=commits%20since%20last%20release)](https://github.com/Lucretiel/joinery/commits)
 
@@ -37,7 +37,7 @@ Add joinery to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-joinery = "1.0.0"
+joinery = "1.1.0"
 ```
 
 ### Nightly-only features
@@ -46,7 +46,7 @@ joinery supports various nightly-only optimization features, such as `iter::Trus
 
 ```toml
 [dependencies.joinery]
-version = "1.0.0"
+version = "1.1.0"
 features = ["nightly"]
 ```
 
@@ -90,5 +90,3 @@ assert_eq!(iter.next(), Some(JoinItem::Element(&2)));
 assert_eq!(iter.next(), Some(JoinItem::Separator(&", ")));
 assert_eq!(iter.next(), Some(JoinItem::Element(&3)));
 ```
-
-See the [docs](https://docs.rs/joinery) for complete documentation, including many more examples.
