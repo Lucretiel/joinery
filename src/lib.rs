@@ -110,8 +110,10 @@ pub trait Joinable {
     /// ```
     fn join_with<S>(self, sep: S) -> Join<Self::IntoIter, S>;
 
-    /// Join this object without a separator. When rendered with [`Display`],
-    /// the underlying elements will be directly concatenated.
+    /// Join this object an empty separator. When rendered with [`Display`],
+    /// the underlying elements will be directly concatenated. Note that the
+    /// separator, while empty, is still present, and will show up if you
+    /// [iterate](Join::iter) this instance.
     ///
     /// # Examples
     ///
