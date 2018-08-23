@@ -152,7 +152,7 @@ impl<T: IntoIterator> Joinable for T {
 /// This struct can be used as a separator in cases where you simply want to
 /// join the elements of a separator without any elements between them.
 ///
-/// See also the [`join_empty`](Joinable::join_empty) method.
+/// See also the [`join_concat`](Joinable::join_concat) method.
 ///
 /// # Examples
 ///
