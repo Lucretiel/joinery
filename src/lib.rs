@@ -1,4 +1,3 @@
-#![cfg_attr(feature = "nightly", feature(try_trait))]
 #![cfg_attr(feature = "nightly", feature(trusted_len))]
 
 //! Joinery provides generic joining of iterables with separators. While it is
@@ -85,9 +84,6 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::iter::{FusedIterator, Peekable};
 
 #[cfg(feature = "nightly")]
-use std::ops::Try;
-
-#[cfg(feature = "nightly")]
 use std::iter::TrustedLen;
 
 /// A trait for converting iterables and collections into [`Join`] instances.
@@ -103,22 +99,38 @@ pub trait Joinable {
     /// Note that the separator does not have to share the same type as the
     /// iterator's values.
     ///
-    ///  # Examples
+    /// # Examples
     ///
     /// ```
     /// use joinery::Joinable;
     ///
     /// let parts = vec!["this", "is", "a", "sentence"];
-    /// let join = parts.join_with(' ');
+    /// let join = parts.iter().join_with(' ');
     /// assert_eq!(join.to_string(), "this is a sentence");
     /// ```
     fn join_with<S>(self, sep: S) -> Join<Self::IntoIter, S>;
+
+    /// Join this object without a separator. When rendered with [`Display`],
+    /// the underlying elements will be directly concatenated.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use joinery::Joinable;
+    ///
+    /// let parts = vec!['a', 'b', 'c', 'd', 'e'];
+    /// let join = parts.iter().join_concat();
+    /// assert_eq!(join.to_string(), "abcde");
+    /// ```
+    fn join_concat(self) -> Join<Self::IntoIter, NoSeparator>
+    where
+        Self: Sized,
+    {
+        self.join_with(NoSeparator)
+    }
 }
 
-impl<T> Joinable for T
-where
-    T: IntoIterator,
-{
+impl<T: IntoIterator> Joinable for T {
     type IntoIter = T::IntoIter;
 
     fn join_with<S>(self, sep: S) -> Join<Self::IntoIter, S> {
@@ -126,6 +138,35 @@ where
             iter: self.into_iter(),
             sep,
         }
+    }
+}
+
+// NOTE: we hope that the compiler will detect that most operations on NoSeparator
+// are no-ops, and optimize heavily, because I'd rather not implement a separate
+// type for empty-separator-joins.
+
+/// Zero-size type representing the empty separator.
+///
+/// This struct can be used as a separator in cases where you simply want to
+/// join the elements of a separator without any elements between them.
+///
+/// See also the [`join_empty`](Joinable::join_empty) method.
+///
+/// # Examples
+///
+/// ```
+/// use joinery::{Joinable, NoSeparator};
+///
+/// let parts = (0..10);
+/// let join = parts.join_with(NoSeparator);
+/// assert_eq!(join.to_string(), "0123456789");
+/// ```
+#[derive(Debug, Clone)]
+pub struct NoSeparator;
+
+impl Display for NoSeparator {
+    fn fmt(&self, _f: &mut Formatter) -> fmt::Result {
+        Ok(())
     }
 }
 
@@ -141,7 +182,8 @@ where
 /// assert_eq!(join.to_string(), "1, 2, 3, 4");
 /// ```
 ///
-/// By default, [`Separator`] is implemented for [`char`] and [`&str`][str].
+/// By default, [`Separator`] is implemented for [`char`], [`&str`][str], and
+/// [`NoSeparator`].
 ///
 /// Note that any type can be used as a separator in a [`Join`] when
 /// creating one via [`Joinable::join_with`]. The [`Separator`] trait and its
@@ -159,6 +201,7 @@ pub trait Separator {
 
 impl<'a> Separator for &'a str {}
 impl Separator for char {}
+impl Separator for NoSeparator {}
 
 /// The primary data structure for representing a joined sequence.
 ///
@@ -327,11 +370,7 @@ impl<T, S> JoinItem<T, S> {
 
 /// Get a reference to a common type `R` from a [`JoinItem`], in the case where
 /// both `T` and `S` implement [`AsRef<R>`][AsRef]
-impl<T, S, R> AsRef<R> for JoinItem<T, S>
-where
-    T: AsRef<R>,
-    S: AsRef<R>,
-{
+impl<R, T: AsRef<R>, S: AsRef<R>> AsRef<R> for JoinItem<T, S> {
     fn as_ref(&self) -> &R {
         match self {
             JoinItem::Element(el) => el.as_ref(),
@@ -623,43 +662,6 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
         (min, max)
     }
 
-    #[cfg(feature = "nightly")]
-    fn try_fold<B, F, R>(&mut self, init: B, mut func: F) -> R
-    where
-        F: FnMut(B, Self::Item) -> R,
-        R: Try<Ok = B>,
-    {
-        let mut elements = self.iter.by_ref().map(JoinItem::Element);
-
-        let accum = if !self.next_sep {
-            match elements.next() {
-                None => return Try::from_ok(init),
-                Some(element) => {
-                    self.next_sep = true;
-                    func(init, element)?
-                }
-            }
-        } else {
-            init
-        };
-
-        let next_sep = &mut self.next_sep;
-        let sep = &self.sep;
-
-        // TODO: it's as-yet unclear if the iterator is left in a consistent
-        // state if `func` panics while processing the separator.
-        elements.try_fold(accum, move |accum, element| {
-            let sep = JoinItem::Separator(sep.clone());
-            match func(accum, sep).into_result() {
-                Err(err) => {
-                    *next_sep = false;
-                    Try::from_error(err)
-                }
-                Ok(accum) => func(accum, element),
-            }
-        })
-    }
-
     fn fold<B, F>(self, init: B, mut func: F) -> B
     where
         F: FnMut(B, Self::Item) -> B,
@@ -681,6 +683,10 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
             func(accum, element)
         })
     }
+
+    // TODO: Add try_fold implementation based on self.iter.try_fold.
+    // Unfortunately, this will be difficult, because when the reducer is called,
+    // it has to make a decision about if and when to evaluate the separator.
 }
 
 impl<I: FusedIterator, S: Clone> FusedIterator for JoinIter<I, S> {}
