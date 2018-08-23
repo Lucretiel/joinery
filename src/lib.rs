@@ -122,6 +122,8 @@ pub trait Joinable {
     /// let join = parts.iter().join_concat();
     /// assert_eq!(join.to_string(), "abcde");
     /// ```
+    ///
+    /// *New in v1.1.0*
     fn join_concat(self) -> Join<Self::IntoIter, NoSeparator>
     where
         Self: Sized,
@@ -161,6 +163,8 @@ impl<T: IntoIterator> Joinable for T {
 /// let join = parts.join_with(NoSeparator);
 /// assert_eq!(join.to_string(), "0123456789");
 /// ```
+///
+/// *New in v1.1.0*
 #[derive(Debug, Clone)]
 pub struct NoSeparator;
 
