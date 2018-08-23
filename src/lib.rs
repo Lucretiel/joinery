@@ -881,5 +881,19 @@ mod tests {
 
             assert_eq!(result, Err(5));
         }
+
+        #[test]
+        fn partial_try_fold() {
+            let content = [1, 2, 3];
+            let mut join_iter = content.iter().join_with(1).into_iter();
+
+            let _ = join_iter.try_fold(1, |_, next| match next {
+                Element(_) => Some(1),
+                Separator(_) => None,
+            });
+
+            // At this point, the remaining elements in the iterator SHOULD be E(2), S(1), E(3)
+            assert_eq!(join_iter.count(), 3);
+        }
     }
 }
