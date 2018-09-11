@@ -1,3 +1,4 @@
+#![no_std]
 #![cfg_attr(feature = "nightly", feature(trusted_len))]
 
 //! Joinery provides generic joining of iterables with separators. While it is
@@ -80,11 +81,14 @@
 //!                     5, 10, 15, 20, 25");
 //! ```
 
-use std::fmt::{self, Debug, Display, Formatter};
-use std::iter::{FusedIterator, Peekable};
+#[cfg(test)]
+extern crate std;
+
+use core::fmt::{self, Debug, Display, Formatter};
+use core::iter::{FusedIterator, Peekable};
 
 #[cfg(feature = "nightly")]
-use std::iter::TrustedLen;
+use core::iter::TrustedLen;
 
 /// A trait for converting iterables and collections into [`Join`] instances.
 ///
@@ -707,6 +711,8 @@ pub mod prelude {
 
 #[cfg(test)]
 mod tests {
+    use std::string::ToString;
+
     macro_rules! join_test {
         ($($test:ident : ($content:expr) @ $join:tt => $expected:expr);*) => {$(
             #[test]
@@ -838,6 +844,8 @@ mod tests {
 
         #[test]
         fn test_partial_iteration() {
+            use std::vec::Vec;
+
             let content = 0..3;
             let mut join_iter = content.join_with(' ').into_iter();
 
