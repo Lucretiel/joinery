@@ -7,6 +7,8 @@ license = "MIT"
 description = "A small crate for generically joining iterators with a separator"
 repository = "https://github.com/Lucretiel/joinery"
 
+categories = ["no-std", "rust-patterns", "value-formatting"]
+
 [badges]
 travis-ci = { repository = "Lucretiel/joinery" }
 maintenance = { status = "actively-developed" }
