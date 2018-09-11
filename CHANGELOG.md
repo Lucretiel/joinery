@@ -5,6 +5,14 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 This changelog was added after the release of 1.0.0; changes before that are left undocumented.
 
+## 1.2.1
+
+2018-09-10
+
+### Minor
+
+- Fixed broken documentation links
+
 ## 1.2.0
 
 2018-09-10
