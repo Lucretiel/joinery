@@ -3,10 +3,10 @@
 
 //! Joinery provides generic joining of iterables with separators. While it is
 //! primarily designed the typical use case of writing to a [writer][fmt::Write]
-//! or creating a [`String`] by joining a list of data with some kind of string
+//! or creating a `String` by joining a list of data with some kind of string
 //! separator (such as `", "`),  it is fully generic and can be used to combine
 //! any iterator or collection with any separator. In this way it is intended
-//! to supercede the existing [`SliceConcatExt::join`] method, which only works
+//! to supercede the existing `SliceConcatExt::join` method, which only works
 //! on slices and can only join with a matching type.
 //!
 //! # Examples
@@ -220,7 +220,7 @@ impl Separator for NoSeparator {}
 ///
 /// A [`Join`] is created with [`Joinable::join_with`] or [`Separator::separate`].
 /// It can be [iterated][Join::iter], and implements [`Display`] so that it can
-/// be written to a [writer][fmt::Write] or converted into a [`String`].
+/// be written to a [writer][fmt::Write] or converted into a `String`.
 ///
 ///
 /// # Examples
@@ -285,7 +285,7 @@ impl<I: Clone, S> Join<I, S> {
     /// which contains a cloned iterator, but a reference to the original
     /// separator. This is useful in cases where the iterator needs to be
     /// consumed, but there's no need to perform a full clone of the separator
-    /// (e.g. if it's a [`String`]).
+    /// (e.g. if it's a `String`).
     ///
     /// Most functions which observe `&self` make use of this conversion
     /// internally, because it's necessary to consume the iterator in order to
