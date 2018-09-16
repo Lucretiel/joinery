@@ -175,6 +175,7 @@ impl<T: IntoIterator> Joinable for T {
 pub struct NoSeparator;
 
 impl Display for NoSeparator {
+    #[inline(always)]
     fn fmt(&self, _f: &mut Formatter) -> fmt::Result {
         Ok(())
     }
@@ -296,6 +297,10 @@ impl<I: Clone, S> Join<I, S> {
             sep: &self.sep,
         }
     }
+
+    // Todo: make a version of partial clone that returns self.sep if self.sep
+    // is a ref, otherwise returns &self.sep. This seems like it'll probably
+    // require dependent typing.
 }
 
 impl<I, S> Join<I, S>
@@ -626,18 +631,15 @@ impl<I: Iterator, S: Clone> JoinIter<I, S> {
 /// the intention that in the future it will be a `const fn`.
 #[inline]
 fn join_size(iter_size: usize, next_sep: bool) -> Option<usize> {
-    // 32 => 16
-    const SIZE_THRESHOLD: usize = (usize::max_value() / 2) + 1;
-
     if iter_size == 0 {
         Some(0)
     } else if next_sep {
         iter_size.checked_mul(2)
-    } else if iter_size > SIZE_THRESHOLD {
-        None
     } else {
-        // This works because (with wrapping logic) 16 * 2 => 0, 0 - 1 => 31
-        Some(iter_size.wrapping_mul(2).wrapping_sub(1))
+        // TODO: this might be faster with wrapping operations and explicit checks
+        // Interestingly, I'm pretty sure that if checked_mul didn't overflow, then
+        // the +1 is also guarenteed to not overflow.
+        (iter_size - 1).checked_mul(2).map(|val| val + 1)
     }
 }
 
@@ -779,6 +781,21 @@ mod tests {
              0, 4, 8, 12, 16\n\
              0, 5, 10, 15, 20"
         );
+    }
+
+    #[test]
+    fn join_size() {
+        use super::join_size;
+        use std::usize::MAX as usize_max;
+
+        assert_eq!(join_size(0, true), Some(0));
+        assert_eq!(join_size(0, false), Some(0));
+
+        assert_eq!(join_size(12, true), Some(24));
+        assert_eq!(join_size(12, false), Some(23));
+
+        assert_eq!(join_size(usize_max, true), None);
+        assert_eq!(join_size(usize_max, false), None);
     }
 
     mod iter {
