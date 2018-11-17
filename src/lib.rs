@@ -93,12 +93,10 @@ use core::iter::TrustedLen;
 /// A trait for converting iterables and collections into [`Join`] instances.
 ///
 /// This trait is the primary way to create [`Join`] instances. It is
-/// implemented for all [`IntoIterator`] types. See
-/// [`join_with`][Joinable::join_with] for an example of its usage.
+/// implemented for all referentially iterable types; that is, for all types
+/// for which &T: IntoIterator. See [`join_with`][Joinable::join_with] for an
+/// example of its usage.
 pub trait Joinable {
-    /// The iterator type which will be used in the join.
-    type IntoIter;
-
     /// Combine this object with a separator to create a new [`Join`] instance.
     /// Note that the separator does not have to share the same type as the
     /// iterator's values.
@@ -109,10 +107,10 @@ pub trait Joinable {
     /// use joinery::Joinable;
     ///
     /// let parts = vec!["this", "is", "a", "sentence"];
-    /// let join = parts.iter().join_with(' ');
+    /// let join = parts.join_with(' ');
     /// assert_eq!(join.to_string(), "this is a sentence");
     /// ```
-    fn join_with<S>(self, sep: S) -> Join<Self::IntoIter, S>;
+    fn join_with<S>(self, sep: S) -> Join<Self, S> where Self: Sized;
 
     /// Join this object an [empty separator](NoSeparator). When rendered
     /// with [`Display`], the underlying elements will be directly concatenated.
@@ -130,7 +128,7 @@ pub trait Joinable {
     /// ```
     ///
     /// *New in 1.1.0*
-    fn join_concat(self) -> Join<Self::IntoIter, NoSeparator>
+    fn join_concat(self) -> Join<Self, NoSeparator>
     where
         Self: Sized,
     {
@@ -138,12 +136,12 @@ pub trait Joinable {
     }
 }
 
-impl<T: IntoIterator> Joinable for T {
-    type IntoIter = T::IntoIter;
-
-    fn join_with<S>(self, sep: S) -> Join<Self::IntoIter, S> {
+impl<T> Joinable for T
+    where for <'a> &'a T: IntoIterator
+{
+    fn join_with<S>(self, sep: S) -> Join<Self, S> {
         Join {
-            iter: self.into_iter(),
+            container: self,
             sep,
         }
     }
@@ -171,7 +169,7 @@ impl<T: IntoIterator> Joinable for T {
 /// ```
 ///
 /// *New in 1.1.0*
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NoSeparator;
 
 impl Display for NoSeparator {
@@ -202,11 +200,10 @@ impl Display for NoSeparator {
 /// a convenience.
 pub trait Separator {
     /// Combine a [`Separator`] with a [`Joinable`] to create a [`Join`].
-    fn separate<T: Joinable>(self, iter: T) -> Join<T::IntoIter, Self>
-    where
-        Self: Sized,
+    fn separate<T: Joinable>(self, container: T) -> Join<T, Self>
+        where Self: Sized
     {
-        iter.join_with(self)
+        container.join_with(self)
     }
 }
 
@@ -261,60 +258,37 @@ impl Separator for NoSeparator {}
 /// assert_eq!(join_iter.next(), None);
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Join<Iter, Sep> {
-    iter: Iter,
+pub struct Join<Container, Sep> {
+    container: Container,
     sep: Sep,
 }
 
-impl<I, S> Join<I, S> {
+impl<C, S> Join<C, S> {
     /// Get a reference to the separator.
     pub fn sep(&self) -> &S {
         &self.sep
     }
-    /// Get a reference to the underlying iterator.
-    pub fn underlying_iter(&self) -> &I {
-        &self.iter
+    /// Get a reference to the underlying container.
+    pub fn container(&self) -> &C {
+        &self.container
+    }
+
+    pub fn into_inner(self) -> C {
+        self.container
     }
     /// Consume `self` and return the separator and underlying iterator.
-    pub fn extract_parts(self) -> (I, S) {
-        (self.iter, self.sep)
+    pub fn into_parts(self) -> (C, S) {
+        (self.container, self.sep)
     }
 }
 
-impl<I: Clone, S> Join<I, S> {
-    /// Create a partial clone of `self`. A partial clone is a [`Join`] instance
-    /// which contains a cloned iterator, but a reference to the original
-    /// separator. This is useful in cases where the iterator needs to be
-    /// consumed, but there's no need to perform a full clone of the separator
-    /// (e.g. if it's a `String`).
-    ///
-    /// Most functions which observe `&self` make use of this conversion
-    /// internally, because it's necessary to consume the iterator in order to
-    /// render or iterate a [`Join`].
-    pub fn partial_clone(&self) -> Join<I, &S> {
-        Join {
-            iter: self.iter.clone(),
-            sep: &self.sep,
-        }
-    }
-
-    // Todo: make a version of partial clone that returns self.sep if self.sep
-    // is a ref, otherwise returns &self.sep. This seems like it'll probably
-    // require dependent typing.
-}
-
-impl<I, S> Join<I, S>
+impl<C, S: Display> Display for Join<C, S>
 where
-    I: Iterator,
-    S: Display,
-    I::Item: Display,
+    for <'a> &'a C: IntoIterator,
+    for <'a> <&'a C as IntoIterator>::Item: Display,
 {
-    /// Consume `self`, writing it to a [`Formatter`]. The [`Display`] trait
-    /// requires `&self`, so this method is provided in the event that you can't
-    /// or don't want to clone the underlying iterator.
-    pub fn consume_fmt(self, f: &mut Formatter) -> fmt::Result {
-        let mut iter = self.iter;
-        let sep = self.sep;
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let iter = self.container.into_iter();
 
         match iter.next() {
             None => Ok(()),
@@ -322,7 +296,7 @@ where
                 first.fmt(f)?;
 
                 iter.try_for_each(move |element| {
-                    sep.fmt(f)?;
+                    self.sep.fmt(f)?;
                     element.fmt(f)
                 })
             }
@@ -330,31 +304,49 @@ where
     }
 }
 
-impl<I, S> Display for Join<I, S>
-where
-    I: Iterator + Clone,
-    S: Display,
-    I::Item: Display,
-{
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.partial_clone().consume_fmt(f)
-    }
-}
-
-impl<I: Iterator, S: Clone> IntoIterator for Join<I, S> {
-    type IntoIter = JoinIter<I, S>;
-    type Item = JoinItem<I::Item, S>;
+impl<C: IntoIterator, S: Clone> IntoIterator for Join<C, S> {
+    type IntoIter = JoinIter<C::IntoIter, S>;
+    type Item = JoinItem<C::Item, S>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.into()
+        JoinIter::new(self.container.into_iter(), self.sep)
     }
 }
 
-impl<I: Iterator + Clone, S> Join<I, S> {
-    /// Create an [iterator][JoinIter] for this [`Join`]. This iterator uses
-    /// a clone of the underlying iterator, but a reference to the separator.
-    pub fn iter(&self) -> JoinIter<I, &S> {
-        self.partial_clone().into_iter()
+impl<'a, C, S> IntoIterator for &'a Join<C, S>
+    where &'a C: IntoIterator
+{
+    type IntoIter = JoinIter<<&'a C as IntoIterator>::IntoIter, &'a S>;
+    type Item = JoinItem<<&'a C as IntoIterator>::Item, &'a S>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        JoinIter::new(self.container.into_iter(), &self.sep)
+    }
+}
+
+impl<'a, C, S> IntoIterator for &'a mut Join<C, S>
+    where &'a mut C: IntoIterator
+{
+    type IntoIter = JoinIter<<&'a mut C as IntoIterator>::IntoIter, &'a S>;
+    type Item = JoinItem<<&'a mut C as IntoIterator>::Item, &'a S>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        JoinIter::new(self.container.into_iter(), &self.sep)
+    }
+}
+
+impl<C, S> Join<C, S>
+{
+    pub fn iter(&self) -> JoinIter<<&C as IntoIterator>::IntoIter, &S>
+        where for <'a> &'a C: IntoIterator
+    {
+        self.into_iter()
+    }
+
+    pub fn iter_mut(&mut self) -> JoinIter<<&mut C as IntoIterator>::IntoIter, &S>
+        where for<'a> &'a mut C: IntoIterator
+    {
+        self.into_iter()
     }
 }
 
@@ -451,6 +443,16 @@ pub struct JoinIter<Iter: Iterator, Sep> {
     iter: Peekable<Iter>,
     sep: Sep,
     next_sep: bool,
+}
+
+impl<I: Iterator, S> JoinIter<I, S> {
+    fn new(iter: I, sep: S) -> Self {
+        JoinIter {
+            iter: iter.peekable(),
+            sep,
+            next_sep: false,
+        }
+    }
 }
 
 impl<I: Iterator, S> JoinIter<I, S> {
