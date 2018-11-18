@@ -110,34 +110,14 @@ pub trait Joinable {
     /// let join = parts.join_with(' ');
     /// assert_eq!(join.to_string(), "this is a sentence");
     /// ```
-    fn join_with<S>(self, sep: S) -> Join<Self, S> where Self: Sized;
-
-    /// Join this object an [empty separator](NoSeparator). When rendered
-    /// with [`Display`], the underlying elements will be directly concatenated.
-    /// Note that the separator, while empty, is still present, and will show
-    /// up if you [iterate](Join::iter) this instance.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use joinery::Joinable;
-    ///
-    /// let parts = vec!['a', 'b', 'c', 'd', 'e'];
-    /// let join = parts.iter().join_concat();
-    /// assert_eq!(join.to_string(), "abcde");
-    /// ```
-    ///
-    /// *New in 1.1.0*
-    fn join_concat(self) -> Join<Self, NoSeparator>
+    fn join_with<S>(self, sep: S) -> Join<Self, S>
     where
-        Self: Sized,
-    {
-        self.join_with(NoSeparator)
-    }
+        Self: Sized;
 }
 
 impl<T> Joinable for T
-    where for <'a> &'a T: IntoIterator
+where
+    for<'a> &'a T: IntoIterator,
 {
     fn join_with<S>(self, sep: S) -> Join<Self, S> {
         Join {
@@ -201,7 +181,8 @@ impl Display for NoSeparator {
 pub trait Separator {
     /// Combine a [`Separator`] with a [`Joinable`] to create a [`Join`].
     fn separate<T: Joinable>(self, container: T) -> Join<T, Self>
-        where Self: Sized
+    where
+        Self: Sized,
     {
         container.join_with(self)
     }
@@ -280,15 +261,23 @@ impl<C, S> Join<C, S> {
     pub fn into_parts(self) -> (C, S) {
         (self.container, self.sep)
     }
+
+    pub fn iter(&self) -> JoinIter<<&C as IntoIterator>::IntoIter, &S>
+    where
+        for<'a> &'a C: IntoIterator,
+    {
+        self.into_iter()
+    }
 }
 
-impl<C, S: Display> Display for Join<C, S>
+impl<C, S> Display for Join<C, S>
 where
-    for <'a> &'a C: IntoIterator,
-    for <'a> <&'a C as IntoIterator>::Item: Display,
+    for<'a> &'a C: IntoIterator,
+    for<'a> <&'a C as IntoIterator>::Item: Display,
+    S: Display,
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let iter = self.container.into_iter();
+        let mut iter = self.container.into_iter();
 
         match iter.next() {
             None => Ok(()),
@@ -314,7 +303,8 @@ impl<C: IntoIterator, S: Clone> IntoIterator for Join<C, S> {
 }
 
 impl<'a, C, S> IntoIterator for &'a Join<C, S>
-    where &'a C: IntoIterator
+where
+    &'a C: IntoIterator,
 {
     type IntoIter = JoinIter<<&'a C as IntoIterator>::IntoIter, &'a S>;
     type Item = JoinItem<<&'a C as IntoIterator>::Item, &'a S>;
@@ -324,31 +314,53 @@ impl<'a, C, S> IntoIterator for &'a Join<C, S>
     }
 }
 
-impl<'a, C, S> IntoIterator for &'a mut Join<C, S>
-    where &'a mut C: IntoIterator
-{
-    type IntoIter = JoinIter<<&'a mut C as IntoIterator>::IntoIter, &'a S>;
-    type Item = JoinItem<<&'a mut C as IntoIterator>::Item, &'a S>;
+/// Specialized helper struct to allow adapting any [`Iterator`] into a [`Join`].
+/// [`Join`] requires the underlying object to be `&T: IntoIterator`, so that
+/// it can be iterated over when formatting via [`Display`]. This works fine for
+/// container types like [`Vec`], but it doesn't work for arbitrary iterators.
+/// However, because many iterators are cheaply clonable (because they often
+/// just contain a reference to the underlying sequence), we can use this adapter
+/// to create an `IntoIterator` type which can be displayed by `Join`.
+#[derive(Debug, Clone)]
+pub struct CloneIterator<I> {
+    iter: I,
+}
+
+impl<'a, I: Iterator + Clone> IntoIterator for &'a CloneIterator<I> {
+    type IntoIter = I;
+    type Item = I::Item;
 
     fn into_iter(self) -> Self::IntoIter {
-        JoinIter::new(self.container.into_iter(), &self.sep)
+        self.iter.clone()
     }
 }
 
-impl<C, S> Join<C, S>
-{
-    pub fn iter(&self) -> JoinIter<<&C as IntoIterator>::IntoIter, &S>
-        where for <'a> &'a C: IntoIterator
-    {
-        self.into_iter()
-    }
+impl<I: IntoIterator> IntoIterator for CloneIterator<I> {
+    type IntoIter = I::IntoIter;
+    type Item = I::Item;
 
-    pub fn iter_mut(&mut self) -> JoinIter<<&mut C as IntoIterator>::IntoIter, &S>
-        where for<'a> &'a mut C: IntoIterator
-    {
-        self.into_iter()
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter.into_iter()
     }
 }
+
+pub trait JoinableIterator {
+    fn join_with<S>(self, sep: S) -> Join<CloneIterator<Self>, S>
+    where
+        Self: Sized + Iterator + Clone,
+    {
+        CloneIterator { iter: self }.join_with(sep)
+    }
+
+    fn iter_join_with<S>(self, sep: S) -> JoinIter<Self, S>
+    where
+        Self: Iterator + Sized,
+    {
+        JoinIter::new(self, sep)
+    }
+}
+
+impl<T: Iterator> JoinableIterator for T {}
 
 /// Enum representing the elements of a [`JoinIter`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -386,13 +398,20 @@ impl<R, T: AsRef<R>, S: AsRef<R>> AsRef<R> for JoinItem<T, S> {
     }
 }
 
+impl<R, T: AsMut<R>, S: AsMut<R>> AsMut<R> for JoinItem<T, S> {
+    fn as_mut(&mut self) -> &mut R {
+        match self {
+            JoinItem::Element(el) => el.as_mut(),
+            JoinItem::Separator(sep) => sep.as_mut(),
+        }
+    }
+}
+
 impl<T: Display, S: Display> Display for JoinItem<T, S> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        use JoinItem::*;
-
         match self {
-            Element(el) => el.fmt(f),
-            Separator(sep) => sep.fmt(f),
+            JoinItem::Element(el) => el.fmt(f),
+            JoinItem::Separator(sep) => sep.fmt(f),
         }
     }
 }
@@ -503,8 +522,8 @@ impl<I: Iterator, S> JoinIter<I, S> {
     /// assert_eq!(join_iter.next(), Some(JoinItem::Element(1)));
     /// ```
     pub fn peek(&mut self) -> Option<JoinItem<&I::Item, &S>> {
-        let next_sep = self.next_sep;
         let sep = &self.sep;
+        let next_sep = self.next_sep;
 
         self.iter.peek().map(move |element| {
             if next_sep {
@@ -557,16 +576,6 @@ where
     }
 }
 
-impl<I: Iterator, S> From<Join<I, S>> for JoinIter<I, S> {
-    fn from(join: Join<I, S>) -> Self {
-        JoinIter {
-            iter: join.iter.peekable(),
-            sep: join.sep,
-            next_sep: false,
-        }
-    }
-}
-
 impl<I, S> Clone for JoinIter<I, S>
 where
     I: Iterator + Clone,
@@ -588,44 +597,6 @@ where
     }
 }
 
-impl<I: Iterator, S: Clone> JoinIter<I, S> {
-    /// Convert the [`JoinItem`] elements of a [`JoinIter`] into some common
-    /// type, using [`Into`] The type should be one that both the iterator items
-    /// and the separator can be converted into via [`Into`]. Note that, because
-    /// [`Into`] is reflexive, this can be used in cases where the separator and
-    /// the item are the same type.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use joinery::Joinable;
-    ///
-    /// // Use this function to aid with type inference
-    /// fn assert_str(lhs: Option<&str>, rhs: Option<&str>) {
-    ///     assert_eq!(lhs, rhs);
-    /// }
-    ///
-    /// let content = vec!["Hello", "World!"];
-    ///
-    /// let join = content.join_with(", ");
-    /// let mut iter = join.into_iter().normalize();
-    ///
-    /// assert_str(iter.next(), Some("Hello"));
-    /// assert_str(iter.next(), Some(", "));
-    /// assert_str(iter.next(), Some("World!"));
-    /// assert_str(iter.next(), None);
-    ///
-    ///
-    /// ```
-    pub fn normalize<R>(self) -> impl Iterator<Item = R>
-    where
-        I::Item: Into<R>,
-        S: Into<R>,
-    {
-        self.map(|item| item.into())
-    }
-}
-
 /// Get the size of a [`JoinIter`], given the size of the underlying iterator. If
 /// next_sep is true, the next element in the [`JoinIter`] will be the separator.
 /// Return None in the event of an overflow. This logic is provided as a separate
@@ -639,8 +610,8 @@ fn join_size(iter_size: usize, next_sep: bool) -> Option<usize> {
         iter_size.checked_mul(2)
     } else {
         // TODO: this might be faster with wrapping operations and explicit checks
-        // Interestingly, I'm pretty sure that if checked_mul didn't overflow, then
-        // the +1 is also guarenteed to not overflow.
+        // Interestingly, If checked_mul didn't overflow, then the +1 is also
+        // guarenteed to not overflow.
         (iter_size - 1).checked_mul(2).map(|val| val + 1)
     }
 }
@@ -670,7 +641,7 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         let (min, max) = self.iter.size_hint();
 
-        let min = join_size(min, self.next_sep).unwrap_or(usize::max_value());
+        let min = join_size(min, self.next_sep).unwrap_or(core::usize::MAX);
         let max = max.and_then(|max| join_size(max, self.next_sep));
 
         (min, max)
@@ -683,13 +654,13 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
         let mut iter = self.iter.map(JoinItem::Element);
         let sep = self.sep;
 
-        let accum = if !self.next_sep {
+        let accum = if self.next_sep {
+            init
+        } else {
             match iter.next() {
                 None => return init,
                 Some(element) => func(init, element),
             }
-        } else {
-            init
         };
 
         iter.fold(accum, move |accum, element| {
@@ -710,7 +681,7 @@ unsafe impl<I: TrustedLen, S: Clone> TrustedLen for JoinIter<I, S> {}
 
 /// The joinery prelude
 pub mod prelude {
-    pub use {Joinable, Separator};
+    pub use {Joinable, JoinableIterator, Separator};
 }
 
 #[cfg(test)]
@@ -722,7 +693,7 @@ mod tests {
             #[test]
             fn $test() {
                 use std::string::ToString;
-                use {Joinable, Separator};
+                use prelude::*;
 
                 let content = $content;
                 let result = content.join_with($join).to_string();
