@@ -83,11 +83,11 @@ macro_rules! const_separator {
 }
 
 const_separator! {
-    Space: " " => test_space,
-    Comma: "," => test_comma,
+    Space: ' ' => test_space,
+    Comma: ',' => test_comma,
     CommaSpace: ", " => test_comma_space,
-    Dot: "." => test_dot,
-    Slash: "/" => test_slash,
-    Underscore: "_" => test_underscore,
-    Dash: "-" => test_dash,
+    Dot: '.' => test_dot,
+    Slash: '/' => test_slash,
+    Underscore: '_' => test_underscore,
+    Dash: '-' => test_dash,
 }
