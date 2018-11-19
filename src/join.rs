@@ -3,6 +3,7 @@
 use core::fmt::{self, Display, Formatter};
 
 use crate::iter::{JoinableIterator, JoinItem, JoinIter};
+use crate::separators::NoSeparator;
 
 /// A trait for converting collections into [`Join`] instances.
 ///
@@ -24,6 +25,10 @@ pub trait Joinable: Sized {
     /// assert_eq!(join.to_string(), "this is a sentence");
     /// ```
     fn join_with<S>(self, sep: S) -> Join<Self, S>;
+
+    fn join_concat(self) -> Join<Self, NoSeparator> {
+        self.join_with(NoSeparator)
+    }
 }
 
 impl<T> Joinable for T

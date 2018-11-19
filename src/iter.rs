@@ -4,7 +4,8 @@ use core::iter::{Peekable, FusedIterator};
 #[cfg(feature = "nightly")]
 use core::iter::TrustedLen;
 
-use crate::join::Join;
+use crate::join::{Join, Joinable};
+use crate::separators::NoSeparator;
 
 /// Specialized helper struct to allow adapting any [`Iterator`] into a [`Join`].
 /// [`Join`] requires the underlying object to be `&T: IntoIterator`, so that
@@ -40,8 +41,13 @@ pub trait JoinableIterator: Iterator + Sized {
     fn join_with<S>(self, sep: S) -> Join<CloneIterator<Self>, S>
     where Self: Clone,
     {
-        use crate::join::Joinable;
         CloneIterator { iter: self }.join_with(sep)
+    }
+
+    fn join_concat(self) -> Join<CloneIterator<Self>, NoSeparator>
+        where Self: Clone,
+    {
+        self.join_with(NoSeparator)
     }
 
     fn iter_join_with<S>(self, sep: S) -> JoinIter<Self, S>
