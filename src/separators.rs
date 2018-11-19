@@ -6,6 +6,7 @@
 // type for empty-separator-joins.
 
 use core::fmt::{self, Display, Formatter};
+use crate::join::Separator;
 
 /// Zero-size type representing the empty separator.
 ///
@@ -36,6 +37,8 @@ impl Display for NoSeparator {
     }
 }
 
+impl Separator for NoSeparator {}
+
 #[cfg(test)]
 #[test]
 fn test_no_separator() {
@@ -55,12 +58,14 @@ macro_rules! const_separator {
         #[must_use]
         pub struct $Name;
 
-        impl ::core::fmt::Display for $Name {
+        impl Display for $Name {
             #[inline]
-            fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+            fn fmt(&self, f: &mut Formatter) -> fmt::Result {
                 $sep.fmt(f)
             }
         }
+
+        impl Separator for $Name {}
 
         #[cfg(test)]
         #[test]

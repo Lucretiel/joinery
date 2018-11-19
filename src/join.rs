@@ -9,7 +9,7 @@ use crate::iter::{JoinableIterator, JoinItem, JoinIter};
 /// This trait is implemented for all referentially iterable types; that is,
 /// for all types for which &T: IntoIterator. See [`join_with`][Joinable::join_with]
 /// for an example of its usage.
-pub trait Joinable {
+pub trait Joinable: Sized {
     /// Combine this object with a separator to create a new [`Join`] instance.
     /// Note that the separator does not have to share the same type as the
     /// iterator's values.
@@ -23,9 +23,7 @@ pub trait Joinable {
     /// let join = parts.join_with(' ');
     /// assert_eq!(join.to_string(), "this is a sentence");
     /// ```
-    fn join_with<S>(self, sep: S) -> Join<Self, S>
-    where
-        Self: Sized;
+    fn join_with<S>(self, sep: S) -> Join<Self, S>;
 }
 
 impl<T> Joinable for T
@@ -39,6 +37,15 @@ where
         }
     }
 }
+
+pub trait Separator: Sized {
+    fn separate<T: Joinable>(self, container: T) -> Join<T, Self> {
+        container.join_with(self)
+    }
+}
+
+impl Separator for char {}
+impl<'a> Separator for &'a str {}
 
 /// The primary data structure for representing a joined sequence.
 ///
@@ -170,7 +177,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::Joinable;
+    use super::{Joinable, Separator};
 
     #[test]
     fn empty() {
@@ -195,6 +202,15 @@ mod tests {
     fn simple_join() {
         let data = vec!["This", "is", "a", "sentence"];
         let join = data.join_with(' ');
+        let result = join.to_string();
+
+        assert_eq!(result, "This is a sentence");
+    }
+
+    #[test]
+    fn join_via_separator() {
+        let data = vec!["This", "is", "a", "sentence"];
+        let join = ' '.separate(data);
         let result = join.to_string();
 
         assert_eq!(result, "This is a sentence");

@@ -13,7 +13,7 @@ use crate::join::Join;
 /// However, because many iterators are cheaply clonable (because they often
 /// just contain a reference to the underlying sequence), we can use this adapter
 /// to create an `IntoIterator` type which can be displayed by `Join`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct CloneIterator<I> {
     iter: I,
 }
@@ -36,18 +36,15 @@ impl<I: Iterator> IntoIterator for CloneIterator<I> {
     }
 }
 
-pub trait JoinableIterator: Iterator {
+pub trait JoinableIterator: Iterator + Sized {
     fn join_with<S>(self, sep: S) -> Join<CloneIterator<Self>, S>
-    where
-        Self: Sized + Clone,
+    where Self: Clone,
     {
         use crate::join::Joinable;
         CloneIterator { iter: self }.join_with(sep)
     }
 
     fn iter_join_with<S>(self, sep: S) -> JoinIter<Self, S>
-    where
-        Self: Sized,
     {
         JoinIter::new(self, sep)
     }
