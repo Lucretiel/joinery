@@ -1,5 +1,3 @@
-//! The primary join types
-
 use core::fmt::{self, Display, Formatter};
 
 use crate::iter::{JoinItem, JoinIter, JoinableIterator};
@@ -26,6 +24,20 @@ pub trait Joinable: Sized {
     /// ```
     fn join_with<S>(self, sep: S) -> Join<Self, S>;
 
+    /// Join this object an [empty separator](NoSeparator). When rendered
+    /// with [`Display`], the underlying elements will be directly concatenated.
+    /// Note that the separator, while empty, is still present, and will show
+    /// up if you [iterate](Join::iter) this instance.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use joinery::Joinable;
+    ///
+    /// let parts = vec!['a', 'b', 'c', 'd', 'e'];
+    /// let join = parts.join_concat();
+    /// assert_eq!(join.to_string(), "abcde");
+    /// ```
     fn join_concat(self) -> Join<Self, NoSeparator> {
         self.join_with(NoSeparator)
     }
@@ -43,6 +55,25 @@ where
     }
 }
 
+/// A trait for using a separator to produce a [`Join`].
+///
+/// This trait provides a more python-style interface for performing joins.
+/// Rather than do [`collection.join_with`][Joinable::join_with], you do:
+///
+/// ```
+/// use joinery::Separator;
+///
+/// let join = ", ".separate([1, 2, 3, 4]);
+/// assert_eq!(join.to_string(), "1, 2, 3, 4");
+/// ```
+///
+/// By default, [`Separator`] is implemented for [`char`] and [`&str`][str], as
+/// well as all the separator types in [separator][joinery::separator].
+///
+/// Note that any type can be used as a separator in a [`Join`] when
+/// creating one via [`Joinable::join_with`]. The [`Separator`] trait and its
+/// implementations on [`char`] and [`&str`][str] are provided simply as
+/// a convenience.
 pub trait Separator: Sized {
     fn separate<T: Joinable>(self, container: T) -> Join<T, Self> {
         container.join_with(self)
@@ -54,8 +85,8 @@ impl<'a> Separator for &'a str {}
 
 /// The primary data structure for representing a joined sequence.
 ///
-/// It contains an interator and a separator, and represents the elements of the
-/// iterator with the separator dividing each element.
+/// It contains a collection and a separator, and represents the elements of the
+/// collection with the separator dividing each element.
 ///
 /// A [`Join`] is created with [`Joinable::join_with`] or [`Separator::separate`].
 /// It can be [iterated][Join::iter], and implements [`Display`] so that it can
@@ -70,16 +101,16 @@ impl<'a> Separator for &'a str {}
 /// use joinery::Joinable;
 /// use std::fmt::Write;
 ///
-/// let content = 0..10;
+/// let content = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 /// let join = content.join_with(", ");
 ///
 /// let mut buffer = String::new();
 /// write!(buffer, "Numbers: {}", join);
 ///
-/// assert_eq!(buffer, "Numbers: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9");
+/// assert_eq!(buffer, "Numbers: 1, 2, 3, 4, 5, 6, 7, 8, 9");
 ///
 /// // Don't forget that `Display` gives to `ToString` for free!
-/// assert_eq!(join.to_string(), "0, 1, 2, 3, 4, 5, 6, 7, 8, 9")
+/// assert_eq!(join.to_string(), "1, 2, 3, 4, 5, 6, 7, 8, 9")
 /// ```
 ///
 /// Iterating via [`IntoIterator`]:
@@ -87,15 +118,15 @@ impl<'a> Separator for &'a str {}
 /// ```
 /// use joinery::{Separator, JoinItem};
 ///
-/// let content = 0..3;
+/// let content = [0, 1, 2];
 /// let join = ", ".separate(content);
 /// let mut join_iter = join.into_iter();
 ///
-/// assert_eq!(join_iter.next(), Some(JoinItem::Element(0)));
-/// assert_eq!(join_iter.next(), Some(JoinItem::Separator(", ")));
-/// assert_eq!(join_iter.next(), Some(JoinItem::Element(1)));
-/// assert_eq!(join_iter.next(), Some(JoinItem::Separator(", ")));
-/// assert_eq!(join_iter.next(), Some(JoinItem::Element(2)));
+/// assert_eq!(join_iter.next(), Some(JoinItem::Element(&0)));
+/// assert_eq!(join_iter.next(), Some(JoinItem::Separator(&", ")));
+/// assert_eq!(join_iter.next(), Some(JoinItem::Element(&1)));
+/// assert_eq!(join_iter.next(), Some(JoinItem::Separator(&", ")));
+/// assert_eq!(join_iter.next(), Some(JoinItem::Element(&2)));
 /// assert_eq!(join_iter.next(), None);
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -115,24 +146,50 @@ impl<C, S> Join<C, S> {
         &self.container
     }
 
-    pub fn into_inner(self) -> C {
+    /// Consume the join, and return the underlying container.
+    pub fn into_container(self) -> C {
         self.container
     }
+
     /// Consume `self` and return the separator and underlying iterator.
     pub fn into_parts(self) -> (C, S) {
         (self.container, self.sep)
     }
 
+    /// Iterate over references to the elements of the underlying container,
+    /// interspersed with references to the separator. See [`JoinIter`] for details.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use joinery::{Joinable, JoinItem};
+    ///
+    /// let content = [0, 1, 2];
+    /// let join = content.join_with(", ");
+    /// let mut join_iter = join.iter();
+    ///
+    /// assert_eq!(join_iter.next(), Some(JoinItem::Element(0)));
+    /// assert_eq!(join_iter.next(), Some(JoinItem::Separator(", ")));
+    /// assert_eq!(join_iter.next(), Some(JoinItem::Element(1)));
+    /// assert_eq!(join_iter.next(), Some(JoinItem::Separator(", ")));
+    /// assert_eq!(join_iter.next(), Some(JoinItem::Element(2)));
+    /// assert_eq!(join_iter.next(), None);
+    /// ```
     pub fn iter(&self) -> JoinIter<<&C as IntoIterator>::IntoIter, &S>
     where
         for<'a> &'a C: IntoIterator,
     {
-        self.into_iter()
+        self.container.into_iter().iter_join_with(&self.sep)
     }
 }
 
 mod private {
     use core::fmt;
+
+    /// This variant Display trait includes a lifetime bound, which is (for
+    /// some reason) required in order to make the trait bounds work when implementing
+    /// [`Display`] for [`Join`]. See https://stackoverflow.com/q/53364798/864406
+    /// for details.
     pub trait Display<'a>: fmt::Display {}
     impl<'a, T: fmt::Display> Display<'a> for T {}
 }

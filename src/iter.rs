@@ -15,8 +15,16 @@ use crate::separators::NoSeparator;
 /// just contain a reference to the underlying sequence), we can use this adapter
 /// to create an `IntoIterator` type which can be displayed by `Join`.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct CloneIterator<I> {
-    iter: I,
+#[repr(transparent)]
+pub struct CloneIterator<I>(I);
+
+impl<I: Iterator> IntoIterator for CloneIterator<I> {
+    type IntoIter = I;
+    type Item = I::Item;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0
+    }
 }
 
 impl<'a, I: Iterator + Clone> IntoIterator for &'a CloneIterator<I> {
@@ -24,27 +32,51 @@ impl<'a, I: Iterator + Clone> IntoIterator for &'a CloneIterator<I> {
     type Item = I::Item;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.iter.clone()
+        self.0.clone()
     }
 }
 
-impl<I: Iterator> IntoIterator for CloneIterator<I> {
-    type IntoIter = I;
-    type Item = I::Item;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter
-    }
-}
-
+/// A trait for converting [`Iterator`]s into [`Join`] instances or [`JoinIter`] iterators.
+///
+/// This trait serves the same purpose as [`Joinable`], but is implemented for `Iterator`
+/// types. The main difference between [`JoinableIterator`] and [`Joinable`] is that,
+/// because iterators generally don't implement `&T: IntoIterator`, we need a different
+/// mechanism to allow for immutably iterating.
 pub trait JoinableIterator: Iterator + Sized {
+    /// Convert a [cloneable][Clone] iterator into a [`Join`] instance. Whenever
+    /// the [`Join`] needs to immutabley iterate over the underlying iterator (for
+    /// instance, when formatting it with [`Display`]), the underlying iterator is
+    /// cloned. For most iterator types this is a cheap operation, because the iterator
+    /// contains just a reference to the underlying collection.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use joinery::JoinableIterator;
+    ///
+    /// let result = (0..4).map(|x| x * 2).join_with(", ").to_string();
+    ///
+    /// assert_eq!(result, "0, 2, 4, 6");
+    /// ```
     fn join_with<S>(self, sep: S) -> Join<CloneIterator<Self>, S>
     where
         Self: Clone,
     {
-        CloneIterator { iter: self }.join_with(sep)
+        CloneIterator(self).join_with(sep)
     }
 
+    /// Convert a [cloneable][Clone] iterator into a [`Join`] instance with no separator.
+    /// When formatted with [`Display`], the elements of the iterator will be directly
+    /// concatenated.
+    /// # Examples
+    ///
+    /// ```
+    /// use joinery::JoinableIterator;
+    ///
+    /// let result = (0..4).map(|x| x * 2).join_concat().to_string();
+    ///
+    /// assert_eq!(result, "0246");
+    /// ```
     fn join_concat(self) -> Join<CloneIterator<Self>, NoSeparator>
     where
         Self: Clone,
@@ -52,6 +84,23 @@ pub trait JoinableIterator: Iterator + Sized {
         self.join_with(NoSeparator)
     }
 
+    /// Create an iterator which interspeses the elements of this iterator with
+    /// a separator. See [`JoinIter`] for more details.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use joinery::{JoinableIterator, JoinItem};
+    ///
+    /// let mut iter = (0..3).map(|x| x * 2).iter_join_with(", ");
+    ///
+    /// assert_eq!(iter.next(), Some(JoinItem::Element(0)));
+    /// assert_eq!(iter.next(), Some(JoinItem::Separator(", ")));
+    /// assert_eq!(iter.next(), Some(JoinItem::Element(2)));
+    /// assert_eq!(iter.next(), Some(JoinItem::Separator(", ")));
+    /// assert_eq!(iter.next(), Some(JoinItem::Element(3)));
+    /// assert_eq!(iter.next(), None);
+    /// ```
     fn iter_join_with<S>(self, sep: S) -> JoinIter<Self, S> {
         JoinIter::new(self, sep)
     }
@@ -95,6 +144,8 @@ impl<R, T: AsRef<R>, S: AsRef<R>> AsRef<R> for JoinItem<T, S> {
     }
 }
 
+/// Get a mutable reference to a common type `R` from a [`JoinItem`], in the
+/// case where both `T` and `S` implement [`AsMut<R>`][AsMut]
 impl<R, T: AsMut<R>, S: AsMut<R>> AsMut<R> for JoinItem<T, S> {
     fn as_mut(&mut self) -> &mut R {
         match self {
@@ -138,23 +189,6 @@ impl<T: Display, S: Display> Display for JoinItem<T, S> {
 /// assert_eq!(join_iter.next(), Some(JoinItem::Element(3)));
 /// assert_eq!(join_iter.next(), None);
 /// ```
-///
-/// Via [`.iter()`][Join::iter]
-///
-/// ```
-/// use joinery::{Joinable, JoinItem};
-///
-/// let join = vec![1, 2, 3].join_with(" ");
-/// let mut join_iter = join.iter();
-///
-/// // Note that using .iter() produces references to the separator, rather than clones.
-/// assert_eq!(join_iter.next(), Some(JoinItem::Element(1)));
-/// assert_eq!(join_iter.next(), Some(JoinItem::Separator(&" ")));
-/// assert_eq!(join_iter.next(), Some(JoinItem::Element(2)));
-/// assert_eq!(join_iter.next(), Some(JoinItem::Separator(&" ")));
-/// assert_eq!(join_iter.next(), Some(JoinItem::Element(3)));
-/// assert_eq!(join_iter.next(), None);
-/// ```
 pub struct JoinIter<Iter: Iterator, Sep> {
     iter: Peekable<Iter>,
     sep: Sep,
@@ -179,7 +213,7 @@ impl<I: Iterator, S> JoinIter<I, S> {
     /// # Examples
     ///
     /// ```
-    /// use joinery::{Joinable, JoinItem};
+    /// use joinery::{JoinableIterator, JoinItem};
     ///
     /// let mut join_iter = (0..3).join_with(", ").into_iter();
     ///
@@ -207,7 +241,7 @@ impl<I: Iterator, S> JoinIter<I, S> {
     /// # Examples
     ///
     /// ```
-    /// use joinery::{Joinable, JoinItem};
+    /// use joinery::{JoinableIterator, JoinItem};
     ///
     /// let mut join_iter = (0..3).join_with(", ").into_iter();
     ///

@@ -18,7 +18,7 @@ use crate::join::Separator;
 /// # Examples
 ///
 /// ```
-/// use joinery::{Joinable, NoSeparator};
+/// use joinery::{JoinableIterator, NoSeparator};
 ///
 /// let parts = (0..10);
 /// let join = parts.join_with(NoSeparator);
