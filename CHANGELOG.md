@@ -5,6 +5,10 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 This changelog was added after the release of 1.0.0; changes before that are left undocumented.
 
+## Unreleased
+
+Major redesign of library. Most idiomatic joinery code should continue to work, but most of the library's traits and structs have been completely redesigned. The most significant change is that joinery is no longer primarily based on cloneable iterators, but rather on referentially iterable containers; that is, types for which `&'a Container: IntoIterator`. This means that we can get rid of a lot of the weird cruft related to `partial_clone`, etc.
+
 ## 1.2.2
 
 2018-09-15
