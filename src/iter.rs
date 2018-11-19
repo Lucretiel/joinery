@@ -1,5 +1,5 @@
-use core::fmt::{self, Display, Formatter, Debug};
-use core::iter::{Peekable, FusedIterator};
+use core::fmt::{self, Debug, Display, Formatter};
+use core::iter::{FusedIterator, Peekable};
 
 #[cfg(feature = "nightly")]
 use core::iter::TrustedLen;
@@ -39,19 +39,20 @@ impl<I: Iterator> IntoIterator for CloneIterator<I> {
 
 pub trait JoinableIterator: Iterator + Sized {
     fn join_with<S>(self, sep: S) -> Join<CloneIterator<Self>, S>
-    where Self: Clone,
+    where
+        Self: Clone,
     {
         CloneIterator { iter: self }.join_with(sep)
     }
 
     fn join_concat(self) -> Join<CloneIterator<Self>, NoSeparator>
-        where Self: Clone,
+    where
+        Self: Clone,
     {
         self.join_with(NoSeparator)
     }
 
-    fn iter_join_with<S>(self, sep: S) -> JoinIter<Self, S>
-    {
+    fn iter_join_with<S>(self, sep: S) -> JoinIter<Self, S> {
         JoinIter::new(self, sep)
     }
 }
@@ -464,7 +465,7 @@ mod tests {
 
     #[test]
     fn partial_iteration() {
-        use ::std::vec::Vec;
+        use std::vec::Vec;
 
         let mut join_iter = (0..3).iter_join_with(' ');
 

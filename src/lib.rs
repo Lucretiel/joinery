@@ -71,15 +71,15 @@
 //!                     5, 10, 15, 20, 25");
 //! ```
 
-pub mod separators;
-pub mod join;
 pub mod iter;
+pub mod join;
+pub mod separators;
 
-pub use crate::join::{Joinable, Join, Separator};
-pub use crate::iter::{JoinableIterator, JoinItem, JoinIter};
+pub use crate::iter::{JoinItem, JoinIter, JoinableIterator};
+pub use crate::join::{Join, Joinable, Separator};
 
 /// The joinery prelude
 pub mod prelude {
+    pub use crate::iter::{JoinIter, JoinableIterator};
     pub use crate::join::{Joinable, Separator};
-    pub use crate::iter::{JoinableIterator, JoinIter};
 }

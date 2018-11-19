@@ -2,7 +2,7 @@
 
 use core::fmt::{self, Display, Formatter};
 
-use crate::iter::{JoinableIterator, JoinItem, JoinIter};
+use crate::iter::{JoinItem, JoinIter, JoinableIterator};
 use crate::separators::NoSeparator;
 
 /// A trait for converting collections into [`Join`] instances.
@@ -124,7 +124,8 @@ impl<C, S> Join<C, S> {
     }
 
     pub fn iter(&self) -> JoinIter<<&C as IntoIterator>::IntoIter, &S>
-        where for <'a> &'a C: IntoIterator
+    where
+        for<'a> &'a C: IntoIterator,
     {
         self.into_iter()
     }
@@ -186,7 +187,6 @@ mod tests {
 
     #[test]
     fn empty() {
-
         let data: Vec<String> = Vec::new();
         let join = data.join_with(", ");
         let result = join.to_string();

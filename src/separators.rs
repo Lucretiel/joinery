@@ -42,8 +42,8 @@ impl Separator for NoSeparator {}
 #[cfg(test)]
 #[test]
 fn test_no_separator() {
-    use crate::separators::NoSeparator;
     use crate::join::Joinable;
+    use crate::separators::NoSeparator;
 
     let data = [1, 2, 3, 4, 5];
     let join = data.join_with(NoSeparator);
