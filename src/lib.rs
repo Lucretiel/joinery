@@ -45,7 +45,7 @@
 //!
 //! // Note that the collection values and the separator can be different types
 //! let join = ["some", "sample", "text"].join_with(' ');
-//! let mut join_iter = join.iter();
+//! let mut join_iter = (&join).into_iter();
 //!
 //! assert_eq!(join_iter.next(), Some(JoinItem::Element(&"some")));
 //! assert_eq!(join_iter.next(), Some(JoinItem::Separator(&' ')));

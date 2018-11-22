@@ -155,32 +155,6 @@ impl<C, S> Join<C, S> {
     pub fn into_parts(self) -> (C, S) {
         (self.container, self.sep)
     }
-
-    /// Iterate over references to the elements of the underlying container,
-    /// interspersed with references to the separator. See [`JoinIter`] for details.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use joinery::{Joinable, JoinItem};
-    ///
-    /// let content = [0, 1, 2];
-    /// let join = content.join_with(", ");
-    /// let mut join_iter = join.iter();
-    ///
-    /// assert_eq!(join_iter.next(), Some(JoinItem::Element(0)));
-    /// assert_eq!(join_iter.next(), Some(JoinItem::Separator(", ")));
-    /// assert_eq!(join_iter.next(), Some(JoinItem::Element(1)));
-    /// assert_eq!(join_iter.next(), Some(JoinItem::Separator(", ")));
-    /// assert_eq!(join_iter.next(), Some(JoinItem::Element(2)));
-    /// assert_eq!(join_iter.next(), None);
-    /// ```
-    pub fn iter(&self) -> JoinIter<<&C as IntoIterator>::IntoIter, &S>
-    where
-        for<'a> &'a C: IntoIterator,
-    {
-        self.container.into_iter().iter_join_with(&self.sep)
-    }
 }
 
 mod private {

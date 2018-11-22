@@ -98,7 +98,7 @@ pub trait JoinableIterator: Iterator + Sized {
     /// assert_eq!(iter.next(), Some(JoinItem::Separator(", ")));
     /// assert_eq!(iter.next(), Some(JoinItem::Element(2)));
     /// assert_eq!(iter.next(), Some(JoinItem::Separator(", ")));
-    /// assert_eq!(iter.next(), Some(JoinItem::Element(3)));
+    /// assert_eq!(iter.next(), Some(JoinItem::Element(4)));
     /// assert_eq!(iter.next(), None);
     /// ```
     fn iter_join_with<S>(self, sep: S) -> JoinIter<Self, S> {
