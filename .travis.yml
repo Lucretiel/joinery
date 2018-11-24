@@ -9,7 +9,7 @@ matrix:
   include:
   - rust: stable
     script:
-    - cargo check
+    - cargo check --verbose
     - cargo test --verbose
   - rust: beta
     script:
@@ -18,11 +18,11 @@ matrix:
     before_script:
       - rustup component add clippy-preview
     script:
-      - cargo clippy
+      - cargo clippy --verbose --features "nightly"
       - cargo test --verbose --features "nightly"
   - rust: nightly
     before_script:
       - rustup component add clippy-preview
     script:
-      - cargo clippy
+      - cargo clippy --verbose
       - cargo test --verbose
