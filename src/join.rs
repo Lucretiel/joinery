@@ -26,7 +26,7 @@ pub trait Joinable: Sized {
     /// ```
     fn join_with<S>(self, sep: S) -> Join<Self, S>;
 
-    /// Join this object an [empty separator](NoSeparator). When rendered
+    /// Join this object with an [empty separator](NoSeparator). When rendered
     /// with [`Display`], the underlying elements will be directly concatenated.
     /// Note that the separator, while empty, is still present, and will show
     /// up if you iterate this instance.
@@ -89,12 +89,14 @@ impl<'a> Separator for &'a str {}
 /// The primary data structure for representing a joined sequence.
 ///
 /// It contains a collection and a separator, and represents the elements of the
-/// collection with the separator dividing each element.
+/// collection with the separator dividing each element. A collection is defined
+/// as any type for which `&T: IntoIterator`; that is, any time for which references
+/// to the type are iterable.
 ///
 /// A [`Join`] is created with [`Joinable::join_with`], [`Separator::separate`], or
-/// [`JoinableIterator::join_with`]. It can be iterated, and implements [`Display`]
-/// so that it can be written to a [writer][fmt::Write] or converted into a
-/// [`String`](https://doc.rust-lang.org/std/string/struct.String.html).
+/// [`JoinableIterator::join_with`]. Its main use is an implementation of [`Display`],
+/// which writes out the elements of the underlying collection, separated by the
+/// separator. It also implements [`IntoIterator`], using a [`JoinIter`].
 ///
 /// # Examples
 ///
@@ -134,9 +136,9 @@ impl<'a> Separator for &'a str {}
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[must_use]
-pub struct Join<Container, Sep> {
-    collection: Container,
-    sep: Sep,
+pub struct Join<C, S> {
+    collection: C,
+    sep: S,
 }
 
 impl<C, S> Join<C, S> {
@@ -154,7 +156,7 @@ impl<C, S> Join<C, S> {
         self.collection
     }
 
-    /// Consume `self` and return the separator and underlying iterator.
+    /// Consume `self` and return underlying collection and separator.
     pub fn into_parts(self) -> (C, S) {
         (self.collection, self.sep)
     }
@@ -171,11 +173,10 @@ mod private {
     impl<'a, T: fmt::Display> Display<'a> for T {}
 }
 
-impl<C, S> Display for Join<C, S>
+impl<C, S: Display> Display for Join<C, S>
 where
     for<'a> &'a C: IntoIterator,
     for<'a> <&'a C as IntoIterator>::Item: private::Display<'a>,
-    S: Display,
 {
     /// Format the joined collection, by writing out each element of the
     /// collection, separated by the separator.

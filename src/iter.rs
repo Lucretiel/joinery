@@ -323,9 +323,8 @@ impl<I: Iterator, S> JoinIter<I, S> {
     }
 }
 
-impl<I: Debug, S: Debug> Debug for JoinIter<I, S>
+impl<I: Debug + Iterator, S: Debug> Debug for JoinIter<I, S>
 where
-    I: Iterator,
     I::Item: Debug,
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
@@ -337,9 +336,8 @@ where
     }
 }
 
-impl<I: Clone, S: Clone> Clone for JoinIter<I, S>
+impl<I: Clone + Iterator, S: Clone> Clone for JoinIter<I, S>
 where
-    I: Iterator,
     I::Item: Clone, // Needed because we use a peekable iterator
 {
     fn clone(&self) -> Self {
