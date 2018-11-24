@@ -1,5 +1,7 @@
-//! The separators module provides 0-size separator types for common string
-//! joins. These are provided as an aid to compiler optimization.
+//! 0-size types for common separators
+//!
+//! This modules provides `Display` types for common separators. These types are
+//! 0-size, with fixed `Display` implement
 
 // NOTE: we hope that the compiler will detect that most operations on NoSeparator
 // are no-ops, and optimize heavily, because I'd rather not implement a separate
@@ -13,7 +15,7 @@ use crate::join::Separator;
 /// This struct can be used as a separator in cases where you simply want to
 /// join the elements of a separator without any elements between them.
 ///
-/// See also the [`join_concat`](Joinable::join_concat) method.
+/// See also the [`join_concat`](join@Joinable::join_concat) method.
 ///
 /// # Examples
 ///

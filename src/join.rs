@@ -1,3 +1,5 @@
+//! Core join type and related traits
+
 use core::fmt::{self, Display, Formatter};
 
 use crate::iter::{JoinItem, JoinIter, JoinableIterator};
@@ -68,7 +70,7 @@ where
 /// ```
 ///
 /// By default, [`Separator`] is implemented for [`char`] and [`&str`][str], as
-/// well as all the separator types in [separator][joinery::separator].
+/// well as all the separator types in [separator][separator@].
 ///
 /// Note that any type can be used as a separator in a [`Join`] when
 /// creating one via [`Joinable::join_with`]. The [`Separator`] trait and its
@@ -89,8 +91,8 @@ impl<'a> Separator for &'a str {}
 /// collection with the separator dividing each element.
 ///
 /// A [`Join`] is created with [`Joinable::join_with`], [`Separator::separate`], or
-/// [`JoinableIterator::join_with`]. It can be [iterated][Join::into_iter], and
-/// implements [`Display`] so that it can be written to a [writer][fmt::Write]
+/// [`JoinableIterator::join_with`]. It can be [iterated][<Join as IntoIterator>::into_iter],
+/// and implements [`Display`] so that it can be written to a [writer][fmt::Write]
 /// or converted into a `String`.
 ///
 /// # Examples

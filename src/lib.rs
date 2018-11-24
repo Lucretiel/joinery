@@ -2,7 +2,7 @@
 #![cfg_attr(feature = "nightly", feature(trusted_len))]
 
 //! Joinery provides generic joining of iterables with separators. While it is
-//! primarily designed the typical use case of writing to a [writer][fmt::Write]
+//! primarily designed the typical use case of writing to a [writer][core::fmt::Write]
 //! or creating a `String` by joining a list of data with some kind of string
 //! separator (such as `", "`),  it is fully generic and can be used to combine
 //! any iterator or collection with any separator. In this way it is intended
@@ -41,15 +41,15 @@
 //! Join any iterator:
 //!
 //! ```
-//! use Joinery::JoinableIterator;
+//! use joinery::JoinableIterator;
 //!
 //! let join = (0..10)
 //!     .filter(|x| *x % 2 == 0)
-//!     .map(|x| *x ^ 2)
+//!     .map(|x: i32| x.pow(2))
 //!     .join_with(", ");
 //!
-//! let result = join.join_with(", ");
-//! assert_eq!(result, "0, 2, 16, 36, 64")
+//! let result = join.to_string();
+//! assert_eq!(result, "0, 4, 16, 36, 64")
 //! ```
 //!
 //! Iterate over joins:

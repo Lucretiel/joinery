@@ -1,3 +1,5 @@
+//! Joinery iterator and related types and traits
+
 use core::fmt::{self, Debug, Display, Formatter};
 use core::iter::{FusedIterator, Peekable};
 
@@ -8,12 +10,14 @@ use crate::join::{Join, Joinable};
 use crate::separators::NoSeparator;
 
 /// Specialized helper struct to allow adapting any [`Iterator`] into a [`Join`].
+///
 /// [`Join`] requires the underlying object to be `&T: IntoIterator`, so that
 /// it can be iterated over when formatting via [`Display`]. This works fine for
-/// collection types like [`Vec`], but it doesn't work for arbitrary iterators.
-/// However, because many iterators are cheaply clonable (because they often
-/// just contain a reference to the underlying sequence), we can use this adapter
-/// to create an `&T: IntoIterator` type which can be displayed by `Join`.
+/// collection types like [`Vec`](https://doc.rust-lang.org/std/vec/struct.Vec.html),
+/// but it doesn't work for arbitrary iterators. However, because many iterators
+/// are cheaply clonable (because they often just contain a reference to the
+/// underlying sequence), we can use this adapter to create an `&T: IntoIterator`
+/// type which can be displayed by `Join`.
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct CloneIterator<I>(I);
@@ -175,7 +179,7 @@ impl<T: Display, S: Display> Display for JoinItem<T, S> {
 /// Emits the elements of the [`Join`]'s underlying iterator, interspersed with
 /// its separator. Note that it uses [`clone`][Clone::clone] to generate copies
 /// of the separator while iterating, but also keep in mind that in most cases
-/// the [`JoinItem`] instance will have a trivially cloneable reference to the
+/// the [`JoinItem`] instance will have a trivially cloneable reference to a
 /// separator, rather than the separator itself.
 ///
 /// # Examples
@@ -194,6 +198,24 @@ impl<T: Display, S: Display> Display for JoinItem<T, S> {
 /// assert_eq!(join_iter.next(), Some(JoinItem::Separator(" ")));
 /// assert_eq!(join_iter.next(), Some(JoinItem::Element(3)));
 /// assert_eq!(join_iter.next(), None);
+/// ```
+///
+/// Via [`iter_join_with`][JoinableIterator::iter_join_with]:
+///
+/// ```
+/// use joinery::{JoinableIterator, JoinItem};
+///
+/// let mut iter = (0..6)
+///     .filter(|x| x % 2 == 0)
+///     .map(|x| x * 2)
+///     .iter_join_with(", ");
+///
+/// assert_eq!(iter.next(), Some(JoinItem::Element(0)));
+/// assert_eq!(iter.next(), Some(JoinItem::Separator(", ")));
+/// assert_eq!(iter.next(), Some(JoinItem::Element(4)));
+/// assert_eq!(iter.next(), Some(JoinItem::Separator(", ")));
+/// assert_eq!(iter.next(), Some(JoinItem::Element(8)));
+/// assert_eq!(iter.next(), None);
 /// ```
 #[must_use]
 pub struct JoinIter<Iter: Iterator, Sep> {
