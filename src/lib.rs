@@ -90,10 +90,10 @@ pub mod join;
 pub mod separators;
 
 pub use crate::iter::{JoinItem, JoinIter, JoinableIterator};
-pub use crate::join::{Join, Separator, Joinable};
+pub use crate::join::{Join, Joinable, Separator};
 
 /// The joinery prelude
 pub mod prelude {
-    pub use crate::iter::{JoinableIterator};
-    pub use crate::join::{Joinable, Separator};
+    pub use crate::iter::JoinableIterator;
+    pub use crate::join::Joinable;
 }

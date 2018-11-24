@@ -60,7 +60,8 @@ where
 /// A trait for using a separator to produce a [`Join`].
 ///
 /// This trait provides a more python-style interface for performing joins.
-/// Rather than do [`collection.join_with`][Joinable::join_with], you do:
+/// Rather use [`collection.join_with`][Joinable::join_with], you can instead
+/// use:
 ///
 /// ```
 /// use joinery::Separator;
@@ -91,9 +92,9 @@ impl<'a> Separator for &'a str {}
 /// collection with the separator dividing each element.
 ///
 /// A [`Join`] is created with [`Joinable::join_with`], [`Separator::separate`], or
-/// [`JoinableIterator::join_with`]. It can be [iterated][<Join as IntoIterator>::into_iter],
-/// and implements [`Display`] so that it can be written to a [writer][fmt::Write]
-/// or converted into a `String`.
+/// [`JoinableIterator::join_with`]. It can be iterated, and implements [`Display`]
+/// so that it can be written to a [writer][fmt::Write] or converted into a
+/// [`String`](https://doc.rust-lang.org/std/string/struct.String.html).
 ///
 /// # Examples
 ///

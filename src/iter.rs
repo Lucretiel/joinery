@@ -50,8 +50,8 @@ impl<'a, I: Iterator + Clone> IntoIterator for &'a CloneIterator<I> {
 /// This trait serves the same purpose as [`Joinable`], but is implemented for `Iterator`
 /// types. The main difference between [`JoinableIterator`] and [`Joinable`] is that,
 /// because iterators generally don't implement `&T: IntoIterator`, we need a different
-/// mechanism to allow for immutably iterating (which is required for `Join`'s implementation
-/// of `Display`)
+/// mechanism to allow for immutably iterating (which is required for [`Join`]'s implementation
+/// of [`Display`]).
 pub trait JoinableIterator: Iterator + Sized {
     /// Convert a cloneable iterator into a [`Join`] instance. Whenever the [`Join`]
     /// needs to immutabley iterate over the underlying iterator (for instance, when
@@ -130,7 +130,8 @@ pub enum JoinItem<T, S> {
 impl<T, S> JoinItem<T, S> {
     /// Convert a [`JoinItem`] into a common type `R`, in the case where both
     /// `T` and `S` can be converted to `R`. Unfortunately, due to potentially
-    /// conflicting implementations, we can't implement `Into<R>` for `JoinItem`.
+    /// conflicting implementations, we can't implement [`Into<R>`][Into] for
+    /// [`JoinItem`].
     pub fn into<R>(self) -> R
     where
         T: Into<R>,

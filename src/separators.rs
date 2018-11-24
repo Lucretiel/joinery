@@ -1,7 +1,8 @@
 //! 0-size types for common separators
 //!
 //! This modules provides `Display` types for common separators. These types are
-//! 0-size, with fixed `Display` implement
+//! 0-size, with fixed `Display` implementation, intended to aid with compiler
+//! optimization.
 
 // NOTE: we hope that the compiler will detect that most operations on NoSeparator
 // are no-ops, and optimize heavily, because I'd rather not implement a separate
