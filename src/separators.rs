@@ -18,7 +18,8 @@ use crate::join::Separator;
 /// # Examples
 ///
 /// ```
-/// use joinery::{JoinableIterator, NoSeparator};
+/// use joinery::JoinableIterator;
+/// use joinery::separators::NoSeparator;
 ///
 /// let parts = (0..10);
 /// let join = parts.join_with(NoSeparator);
@@ -90,4 +91,5 @@ const_separator! {
     Slash: '/' => test_slash,
     Underscore: '_' => test_underscore,
     Dash: '-' => test_dash,
+    Tab: '\t' => test_tab,
 }

@@ -10,10 +10,10 @@ use crate::separators::NoSeparator;
 /// Specialized helper struct to allow adapting any [`Iterator`] into a [`Join`].
 /// [`Join`] requires the underlying object to be `&T: IntoIterator`, so that
 /// it can be iterated over when formatting via [`Display`]. This works fine for
-/// container types like [`Vec`], but it doesn't work for arbitrary iterators.
+/// collection types like [`Vec`], but it doesn't work for arbitrary iterators.
 /// However, because many iterators are cheaply clonable (because they often
 /// just contain a reference to the underlying sequence), we can use this adapter
-/// to create an `IntoIterator` type which can be displayed by `Join`.
+/// to create an `&T: IntoIterator` type which can be displayed by `Join`.
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct CloneIterator<I>(I);
@@ -22,6 +22,7 @@ impl<I: Iterator> IntoIterator for CloneIterator<I> {
     type IntoIter = I;
     type Item = I::Item;
 
+    /// Convert the adapter back into the underlying iterator.
     fn into_iter(self) -> Self::IntoIter {
         self.0
     }
@@ -31,23 +32,28 @@ impl<'a, I: Iterator + Clone> IntoIterator for &'a CloneIterator<I> {
     type IntoIter = I;
     type Item = I::Item;
 
+    /// Create a referential iterator by cloning the underlying iterator. Note
+    /// that this will have the same `Item` type as the underlying iterator,
+    /// rather than references to those items.
     fn into_iter(self) -> Self::IntoIter {
         self.0.clone()
     }
 }
 
-/// A trait for converting [`Iterator`]s into [`Join`] instances or [`JoinIter`] iterators.
+/// A trait for converting [`Iterator`]s into [`Join`] instances or [`JoinIter`]
+/// iterators.
 ///
 /// This trait serves the same purpose as [`Joinable`], but is implemented for `Iterator`
 /// types. The main difference between [`JoinableIterator`] and [`Joinable`] is that,
 /// because iterators generally don't implement `&T: IntoIterator`, we need a different
-/// mechanism to allow for immutably iterating.
+/// mechanism to allow for immutably iterating (which is required for `Join`'s implementation
+/// of `Display`)
 pub trait JoinableIterator: Iterator + Sized {
-    /// Convert a [cloneable][Clone] iterator into a [`Join`] instance. Whenever
-    /// the [`Join`] needs to immutabley iterate over the underlying iterator (for
-    /// instance, when formatting it with [`Display`]), the underlying iterator is
-    /// cloned. For most iterator types this is a cheap operation, because the iterator
-    /// contains just a reference to the underlying collection.
+    /// Convert a cloneable iterator into a [`Join`] instance. Whenever the [`Join`]
+    /// needs to immutabley iterate over the underlying iterator (for instance, when
+    /// formatting it with [`Display`]), the underlying iterator is cloned. For most
+    /// iterator types this is a cheap operation, because the iterator contains just
+    /// a reference to the underlying collection.
     ///
     /// # Examples
     ///
@@ -133,9 +139,9 @@ impl<T, S> JoinItem<T, S> {
     }
 }
 
-/// Get a reference to a common type `R` from a [`JoinItem`], in the case where
-/// both `T` and `S` implement [`AsRef<R>`][AsRef]
 impl<R, T: AsRef<R>, S: AsRef<R>> AsRef<R> for JoinItem<T, S> {
+    /// Get a reference to a common type `R` from a [`JoinItem`], in the case where
+    /// both `T` and `S` implement [`AsRef<R>`][AsRef]
     fn as_ref(&self) -> &R {
         match self {
             JoinItem::Element(el) => el.as_ref(),
@@ -144,9 +150,9 @@ impl<R, T: AsRef<R>, S: AsRef<R>> AsRef<R> for JoinItem<T, S> {
     }
 }
 
-/// Get a mutable reference to a common type `R` from a [`JoinItem`], in the
-/// case where both `T` and `S` implement [`AsMut<R>`][AsMut]
 impl<R, T: AsMut<R>, S: AsMut<R>> AsMut<R> for JoinItem<T, S> {
+    /// Get a mutable reference to a common type `R` from a [`JoinItem`], in the
+    /// case where both `T` and `S` implement [`AsMut<R>`][AsMut]
     fn as_mut(&mut self) -> &mut R {
         match self {
             JoinItem::Element(el) => el.as_mut(),
@@ -189,6 +195,7 @@ impl<T: Display, S: Display> Display for JoinItem<T, S> {
 /// assert_eq!(join_iter.next(), Some(JoinItem::Element(3)));
 /// assert_eq!(join_iter.next(), None);
 /// ```
+#[must_use]
 pub struct JoinIter<Iter: Iterator, Sep> {
     iter: Peekable<Iter>,
     sep: Sep,
@@ -196,6 +203,7 @@ pub struct JoinIter<Iter: Iterator, Sep> {
 }
 
 impl<I: Iterator, S> JoinIter<I, S> {
+    /// Construct a new [`JoinIter`] using an iterator and a separator
     fn new(iter: I, sep: S) -> Self {
         JoinIter {
             iter: iter.peekable(),
@@ -306,10 +314,9 @@ where
     }
 }
 
-impl<I, S> Clone for JoinIter<I, S>
+impl<I: Clone, S: Clone> Clone for JoinIter<I, S>
 where
-    I: Iterator + Clone,
-    S: Clone,
+    I: Iterator,
     I::Item: Clone, // Needed because we use a peekable iterator
 {
     fn clone(&self) -> Self {
@@ -400,8 +407,9 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
     }
 
     // TODO: Add try_fold implementation based on self.iter.try_fold.
-    // Unfortunately, this will be difficult, because when the reducer is called,
-    // it has to make a decision about if and when to evaluate the separator.
+    // Unfortunately, this will be difficult (and probably impossible), because
+    // when the reducer function is called, it has to process both the element
+    // and the separator, either of which could result in an early return.
 }
 
 impl<I: FusedIterator, S: Clone> FusedIterator for JoinIter<I, S> {}
@@ -413,21 +421,6 @@ unsafe impl<I: TrustedLen, S: Clone> TrustedLen for JoinIter<I, S> {}
 mod tests {
     use super::JoinItem::*;
     use super::JoinableIterator;
-
-    #[test]
-    fn join_size() {
-        use super::join_size;
-        use core::usize::MAX as usize_max;
-
-        assert_eq!(join_size(0, true), Some(0));
-        assert_eq!(join_size(0, false), Some(0));
-
-        assert_eq!(join_size(12, true), Some(24));
-        assert_eq!(join_size(12, false), Some(23));
-
-        assert_eq!(join_size(usize_max, true), None);
-        assert_eq!(join_size(usize_max, false), None);
-    }
 
     #[test]
     fn empty_iter() {

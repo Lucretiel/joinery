@@ -24,7 +24,7 @@
 //!
 //! ```
 //! use joinery::Joinable;
-//! # use std::fmt::Write;
+//! use std::fmt::Write;
 //!
 //! let join = vec![1, 2, 3, 4, 5].join_with(", ");
 //!
@@ -36,6 +36,20 @@
 //! // Note that joins are stateless; they can be reused after writing
 //! let result2 = join.to_string();
 //! assert_eq!(result2, "1, 2, 3, 4, 5");
+//! ```
+//!
+//! Join any iterator:
+//!
+//! ```
+//! use Joinery::JoinableIterator;
+//!
+//! let join = (0..10)
+//!     .filter(|x| *x % 2 == 0)
+//!     .map(|x| *x ^ 2)
+//!     .join_with(", ");
+//!
+//! let result = join.join_with(", ");
+//! assert_eq!(result, "0, 2, 16, 36, 64")
 //! ```
 //!
 //! Iterate over joins:
@@ -76,11 +90,10 @@ pub mod join;
 pub mod separators;
 
 pub use crate::iter::{JoinItem, JoinIter, JoinableIterator};
-pub use crate::join::{Join, Joinable, Separator};
-pub use crate::separators::NoSeparator;
+pub use crate::join::{Join, Separator, Joinable};
 
 /// The joinery prelude
 pub mod prelude {
-    pub use crate::iter::{JoinIter, JoinableIterator};
+    pub use crate::iter::{JoinableIterator};
     pub use crate::join::{Joinable, Separator};
 }

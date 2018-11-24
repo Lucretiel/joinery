@@ -6,7 +6,7 @@ use crate::separators::NoSeparator;
 /// A trait for converting collections into [`Join`] instances.
 ///
 /// This trait is implemented for all referentially iterable types; that is,
-/// for all types for which &T: IntoIterator. See [`join_with`][Joinable::join_with]
+/// for all types for which `&T: IntoIterator`. See [`join_with`][Joinable::join_with]
 /// for an example of its usage.
 pub trait Joinable: Sized {
     /// Combine this object with a separator to create a new [`Join`] instance.
@@ -27,7 +27,7 @@ pub trait Joinable: Sized {
     /// Join this object an [empty separator](NoSeparator). When rendered
     /// with [`Display`], the underlying elements will be directly concatenated.
     /// Note that the separator, while empty, is still present, and will show
-    /// up if you [iterate](Join::iter) this instance.
+    /// up if you iterate this instance.
     ///
     /// # Examples
     ///
@@ -49,7 +49,7 @@ where
 {
     fn join_with<S>(self, sep: S) -> Join<Self, S> {
         Join {
-            container: self,
+            collection: self,
             sep,
         }
     }
@@ -75,8 +75,8 @@ where
 /// implementations on [`char`] and [`&str`][str] are provided simply as
 /// a convenience.
 pub trait Separator: Sized {
-    fn separate<T: Joinable>(self, container: T) -> Join<T, Self> {
-        container.join_with(self)
+    fn separate<T: Joinable>(self, collection: T) -> Join<T, Self> {
+        collection.join_with(self)
     }
 }
 
@@ -88,10 +88,10 @@ impl<'a> Separator for &'a str {}
 /// It contains a collection and a separator, and represents the elements of the
 /// collection with the separator dividing each element.
 ///
-/// A [`Join`] is created with [`Joinable::join_with`] or [`Separator::separate`].
-/// It can be [iterated][Join::iter], and implements [`Display`] so that it can
-/// be written to a [writer][fmt::Write] or converted into a `String`.
-///
+/// A [`Join`] is created with [`Joinable::join_with`], [`Separator::separate`], or
+/// [`JoinableIterator::join_with`]. It can be [iterated][Join::into_iter], and
+/// implements [`Display`] so that it can be written to a [writer][fmt::Write]
+/// or converted into a `String`.
 ///
 /// # Examples
 ///
@@ -132,7 +132,7 @@ impl<'a> Separator for &'a str {}
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[must_use]
 pub struct Join<Container, Sep> {
-    container: Container,
+    collection: Container,
     sep: Sep,
 }
 
@@ -141,19 +141,19 @@ impl<C, S> Join<C, S> {
     pub fn sep(&self) -> &S {
         &self.sep
     }
-    /// Get a reference to the underlying container.
-    pub fn container(&self) -> &C {
-        &self.container
+    /// Get a reference to the underlying collection.
+    pub fn collection(&self) -> &C {
+        &self.collection
     }
 
-    /// Consume the join, and return the underlying container.
-    pub fn into_container(self) -> C {
-        self.container
+    /// Consume the join, and return the underlying collection.
+    pub fn into_collection(self) -> C {
+        self.collection
     }
 
     /// Consume `self` and return the separator and underlying iterator.
     pub fn into_parts(self) -> (C, S) {
-        (self.container, self.sep)
+        (self.collection, self.sep)
     }
 }
 
@@ -174,8 +174,10 @@ where
     for<'a> <&'a C as IntoIterator>::Item: private::Display<'a>,
     S: Display,
 {
+    /// Format the joined collection, by writing out each element of the
+    /// collection, separated by the separator.
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let mut iter = self.container.into_iter();
+        let mut iter = self.collection.into_iter();
 
         match iter.next() {
             None => Ok(()),
@@ -195,8 +197,11 @@ impl<C: IntoIterator, S: Clone> IntoIterator for Join<C, S> {
     type IntoIter = JoinIter<C::IntoIter, S>;
     type Item = JoinItem<C::Item, S>;
 
+    /// Create a consuming iterator from a `Join`. This iterator consumes the
+    /// elements of the underlying collection, and intersperses them with clones
+    /// of the separator. See the [`JoinIter`] documentation for more details.
     fn into_iter(self) -> Self::IntoIter {
-        self.container.into_iter().iter_join_with(self.sep)
+        self.collection.into_iter().iter_join_with(self.sep)
     }
 }
 
@@ -207,8 +212,11 @@ where
     type IntoIter = JoinIter<<&'a C as IntoIterator>::IntoIter, &'a S>;
     type Item = JoinItem<<&'a C as IntoIterator>::Item, &'a S>;
 
+    /// Create a referential iterator over the join. This iterator iterates
+    /// over references to the underlying collection, interspersed with references
+    /// to the separator. See the [`JoinIter`] documentation for more details.
     fn into_iter(self) -> Self::IntoIter {
-        self.container.into_iter().iter_join_with(&self.sep)
+        self.collection.into_iter().iter_join_with(&self.sep)
     }
 }
 

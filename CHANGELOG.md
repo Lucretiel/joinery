@@ -7,7 +7,31 @@ This changelog was added after the release of 1.0.0; changes before that are lef
 
 ## Unreleased
 
-Major redesign of library. Most idiomatic joinery code should continue to work, but most of the library's traits and structs have been completely redesigned. The most significant change is that joinery is no longer primarily based on cloneable iterators, but rather on referentially iterable containers; that is, types for which `&'a Container: IntoIterator`. This means that we can get rid of a lot of the weird cruft related to `partial_clone`, etc.
+Major redesign of library. Most idiomatic joinery code should continue to work, but most of the library's traits and structs have been completely redesigned. The most significant change is that joinery is no longer primarily based on cloneable iterators, but rather on referentially iterable collections; that is, types for which `&'a Container: IntoIterator`. This means that we can get rid of a lot of the weird cruft related to `partial_clone`, etc.
+
+### Design notes:
+
+- Iterators and collections are now treated separately. The `Join` struct is now based on collections, which are types which implement referential iteration (that is, for which `&T: IntoIterator`).
+- Iterators can be adapted into `Join` instances via the `CloneIterator` adapter, which adds `&T: IntoIterator` to types that are `T: Clone + Iterator`.
+- While the types have drastically changed, idiomatic code (which imports the prelude and uses mainly the `join_with` method) should continue to function
+correctly.
+- Updated
+
+### Changed
+- Split the library into various modules for the different functionality.
+    - `join` contains the `Join` type and related traits.
+    - `iter` contains the `JoinIter` type and related traits and structs.
+    - `separators` contains various convenient 0-size `Display` types for common separators, like `Comma` and `Space`.
+
+### Added
+- `JoinableIterator` trait, which allows joining iterators directly via `iter_join_with`, or adapting them into `Join` structs via `join_with`
+- Added numerous extra 0-size separator types, like `Comma` and `Space`, for common separators.
+- Advanced to Rust 2018 Edition, which means this library is nightly-only for
+the time being.
+
+### Removed
+- `NoSeparator` removed from the prelude, since it's generally preferable to use `join_concat`
+- Many methods on `Join` were deemed too niche and removed as part of the redesign, such as `partial_clone` and `consume_fmt`.
 
 ## 1.2.2
 
