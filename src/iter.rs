@@ -119,7 +119,7 @@ pub trait JoinableIterator: Iterator + Sized {
 impl<T: Iterator> JoinableIterator for T {}
 
 /// Enum representing the elements of a [`JoinIter`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum JoinItem<T, S> {
     /// An element from the underlying iterator
     Element(T),

@@ -1,8 +1,8 @@
 //! 0-size types for common separators
 //!
-//! This modules provides `Display` types for common separators. These types are
-//! 0-size, with fixed `Display` implementation, intended to aid with compiler
-//! optimization.
+//! This modules provides `Display`-implementing types for common separators.
+//! These types are 0-size, with fixed `Display` implementations, intended to
+//! aid with compiler optimization.
 
 // NOTE: we hope that the compiler will detect that most operations on NoSeparator
 // are no-ops, and optimize heavily, because I'd rather not implement a separate
@@ -57,9 +57,12 @@ fn test_no_separator() {
 }
 
 macro_rules! const_separator {
-    ($($Name:ident: $sep:expr => $test_name:ident,)+) => {$(
+    ($($Name:ident: $sep:expr , $repr:expr => $test_name:ident,)+) => {$(
         #[derive(Debug, Clone, Copy, Default)]
         #[must_use]
+        #[doc = "Zero size type representing the "]
+        #[doc = $repr]
+        #[doc = " separator."]
         pub struct $Name;
 
         impl Display for $Name {
@@ -87,12 +90,12 @@ macro_rules! const_separator {
 }
 
 const_separator! {
-    Space: ' ' => test_space,
-    Comma: ',' => test_comma,
-    CommaSpace: ", " => test_comma_space,
-    Dot: '.' => test_dot,
-    Slash: '/' => test_slash,
-    Underscore: '_' => test_underscore,
-    Dash: '-' => test_dash,
-    Tab: '\t' => test_tab,
+    Space: ' ' , "space" => test_space,
+    Comma: ',' , "`,`" => test_comma,
+    CommaSpace: ", " , "comma followed by space" => test_comma_space,
+    Dot: '.' , "`.`" => test_dot,
+    Slash: '/' , "`/`" => test_slash,
+    Underscore: '_' , "`_`" => test_underscore,
+    Dash: '-' , "`-`" => test_dash,
+    Tab: '\t' , "tab" => test_tab,
 }
