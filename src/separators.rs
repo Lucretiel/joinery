@@ -57,7 +57,7 @@ fn test_no_separator() {
 }
 
 macro_rules! const_separator {
-    ($($Name:ident: $sep:expr , $repr:expr => $test_name:ident,)+) => {$(
+    ($($Name:ident(sep: $sep:expr, repr: $repr:expr, test: $test_name:ident))+) => {$(
         #[derive(Debug, Clone, Copy, Default)]
         #[must_use]
         #[doc = "Zero size type representing the "]
@@ -90,12 +90,12 @@ macro_rules! const_separator {
 }
 
 const_separator! {
-    Space: ' ' , "space" => test_space,
-    Comma: ',' , "`,`" => test_comma,
-    CommaSpace: ", " , "comma followed by space" => test_comma_space,
-    Dot: '.' , "`.`" => test_dot,
-    Slash: '/' , "`/`" => test_slash,
-    Underscore: '_' , "`_`" => test_underscore,
-    Dash: '-' , "`-`" => test_dash,
-    Tab: '\t' , "tab" => test_tab,
+    Space(sep: ' ', repr:"space", test:test_space)
+    Comma(sep: ',', repr: "`,`", test: test_comma)
+    CommaSpace(sep: ", ", repr: "comma followed by space", test: test_comma_space)
+    Dot(sep: '.', repr: "`.`", test: test_dot)
+    Slash(sep: '/', repr: "`/`", test: test_slash)
+    Underscore(sep: '_', repr: "`_`", test: test_underscore)
+    Dash(sep: '-', repr: "`-`", test: test_dash)
+    Tab(sep: '\t', repr: "tab", test: test_tab)
 }
