@@ -8,21 +8,20 @@ matrix:
   fast_finish: true
   include:
   - rust: stable
+    before_script:
+    - rustup component add clippy
     script:
-    - cargo check --verbose
-    - cargo test --verbose
-  - rust: beta
-    script:
+    - cargo clippy --verbose
     - cargo test --verbose
   - rust: nightly
     before_script:
-      - rustup component add clippy-preview
+    - rustup component add clippy
     script:
-      - cargo clippy --verbose --features "nightly"
-      - cargo test --verbose --features "nightly"
+    - cargo clippy --verbose --features "nightly"
+    - cargo test --verbose --features "nightly"
   - rust: nightly
     before_script:
-      - rustup component add clippy-preview
+    - rustup component add clippy
     script:
-      - cargo clippy --verbose
-      - cargo test --verbose
+    - cargo clippy --verbose
+    - cargo test --verbose
