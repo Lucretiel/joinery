@@ -1,8 +1,8 @@
 //! 0-size types for common separators
 //!
-//! This modules provides `Display`-implementing types for common separators.
-//! These types are 0-size, with fixed `Display` implementations, intended to
-//! aid with compiler optimization.
+//! This modules provides [`Display`](https://doc.rust-lang.org/std/fmt/trait.Display.html)-implementing
+//! types for common separators. These types are 0-size, with fixed `Display` implementations,
+//! intended to aid with compiler optimization.
 
 // NOTE: we hope that the compiler will detect that most operations on NoSeparator
 // are no-ops, and optimize heavily, because I'd rather not implement a separate
@@ -58,7 +58,7 @@ fn test_no_separator() {
 
 macro_rules! const_separator {
     ($($Name:ident(sep: $sep:expr, repr: $repr:expr, test: $test_name:ident))+) => {$(
-        #[derive(Debug, Clone, Copy, Default)]
+        #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
         #[must_use]
         #[doc = "Zero size type representing the "]
         #[doc = $repr]

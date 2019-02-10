@@ -74,7 +74,7 @@ where
 /// ```
 ///
 /// By default, [`Separator`] is implemented for [`char`] and [`&str`][str], as
-/// well as all the separator types in [separator][separator@].
+/// well as all the separator types in `separators`.
 ///
 /// Note that any type can be used as a separator in a [`Join`] when
 /// creating one via [`Joinable::join_with`]. The [`Separator`] trait and its
@@ -149,9 +149,15 @@ impl<C, S> Join<C, S> {
     pub fn sep(&self) -> &S {
         &self.sep
     }
+
     /// Get a reference to the underlying collection.
     pub fn collection(&self) -> &C {
         &self.collection
+    }
+
+    /// Get a mutable reference to the underlying collection
+    pub fn collection_mut(&mut self) -> &mut C {
+        &mut self.collection
     }
 
     /// Consume the join, and return the underlying collection.

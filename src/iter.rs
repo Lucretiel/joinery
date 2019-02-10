@@ -180,8 +180,9 @@ impl<T: Display, S: Display> Display for JoinItem<T, S> {
 /// Emits the elements of the [`Join`]'s underlying iterator, interspersed with
 /// its separator. Note that it uses [`clone`][Clone::clone] to generate copies
 /// of the separator while iterating, but also keep in mind that in most cases
-/// the [`JoinItem`] instance will have a trivially cloneable reference to a
-/// separator, rather than the separator itself.
+/// the [`JoinItem`] instance will have a trivially cloneable separator, such
+/// as [`&`](https://doc.rust-lang.org/std/primitive.reference.html)[`str`][str]
+/// or [`char`].
 ///
 /// # Examples
 ///
@@ -379,6 +380,9 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
 
     /// Advance to the next item in the Join. This will either be the next
     /// element in the underlying iterator, or a clone of the separator.
+    // We tag it inline in the hopes that the compiler can optimize loops into
+    // (mostly) branchless versions, similar to `(Join as Display)::fmt`
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let sep = &self.sep;
         let next_sep = &mut self.next_sep;
