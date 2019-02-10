@@ -11,6 +11,7 @@ use crate::separators::NoSeparator;
 /// for all types for which `&T: IntoIterator`. See [`join_with`][Joinable::join_with]
 /// for an example of its usage.
 pub trait Joinable: Sized {
+    type Collection;
     /// Combine this object with a separator to create a new [`Join`] instance.
     /// Note that the separator does not have to share the same type as the
     /// iterator's values.
@@ -24,7 +25,7 @@ pub trait Joinable: Sized {
     /// let join = parts.join_with(' ');
     /// assert_eq!(join.to_string(), "this is a sentence");
     /// ```
-    fn join_with<S>(self, sep: S) -> Join<Self, S>;
+    fn join_with<S>(self, sep: S) -> Join<Self::Collection, S>;
 
     /// Join this object with an [empty separator](NoSeparator). When rendered
     /// with [`Display`], the underlying elements will be directly concatenated.
@@ -40,7 +41,7 @@ pub trait Joinable: Sized {
     /// let join = parts.join_concat();
     /// assert_eq!(join.to_string(), "abcde");
     /// ```
-    fn join_concat(self) -> Join<Self, NoSeparator> {
+    fn join_concat(self) -> Join<Self::Collection, NoSeparator> {
         self.join_with(NoSeparator)
     }
 }
@@ -49,6 +50,8 @@ impl<T> Joinable for T
 where
     for<'a> &'a T: IntoIterator,
 {
+    type Collection = Self;
+
     fn join_with<S>(self, sep: S) -> Join<Self, S> {
         Join {
             collection: self,
@@ -78,7 +81,7 @@ where
 /// implementations on [`char`] and [`&str`][str] are provided simply as
 /// a convenience.
 pub trait Separator: Sized {
-    fn separate<T: Joinable>(self, collection: T) -> Join<T, Self> {
+    fn separate<T: Joinable>(self, collection: T) -> Join<T::Collection, Self> {
         collection.join_with(self)
     }
 }
