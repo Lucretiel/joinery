@@ -14,14 +14,10 @@ matrix:
     - cargo clippy --verbose
     - cargo test --verbose
   - rust: nightly
-    before_script:
-    - rustup component add clippy
     script:
-    - cargo clippy --verbose --features "nightly"
+    - cargo check --verbose --features "nightly"
     - cargo test --verbose --features "nightly"
   - rust: nightly
-    before_script:
-    - rustup component add clippy
     script:
-    - cargo clippy --verbose
+    - cargo check --verbose
     - cargo test --verbose
