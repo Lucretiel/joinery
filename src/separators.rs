@@ -8,8 +8,8 @@
 // are no-ops, and optimize heavily, because I'd rather not implement a separate
 // type for empty-separator-joins.
 
-use core::fmt::{self, Display, Formatter};
 use crate::join::Separator;
+use core::fmt::{self, Display, Formatter};
 
 /// Zero-size type representing the empty separator.
 ///
