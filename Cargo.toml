@@ -1,12 +1,12 @@
 [package]
 name = "joinery"
-version = "1.2.2"
+version = "2.0.0"
 authors = ["Nathan West <Lucretiel@gmail.com>"]
 readme = "README.md"
 license = "MIT"
+edition = "2018"
 description = "A small crate for generically joining iterators with a separator"
 repository = "https://github.com/Lucretiel/joinery"
-
 categories = ["no-std", "rust-patterns", "value-formatting"]
 
 [badges]
