@@ -90,6 +90,7 @@ macro_rules! const_separator {
 }
 
 const_separator! {
+    Newline(sep: '\n', repr: "newline", test: test_newline)
     Space(sep: ' ', repr:"space", test:test_space)
     Comma(sep: ',', repr: "`,`", test: test_comma)
     CommaSpace(sep: ", ", repr: "comma followed by space", test: test_comma_space)
