@@ -7,6 +7,9 @@ This changelog was added after the release of 1.0.0; changes before that are lef
 
 ## Unlreleased
 
+### Added
+- 0-size `Display` type for `Newline` in `separators`.
+
 ## 2.0.0
 
 2019-02-10
