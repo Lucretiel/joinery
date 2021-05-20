@@ -130,11 +130,11 @@ impl<'a> Separator for &'a str {}
 /// let join = ", ".separate(content);
 /// let mut join_iter = join.into_iter();
 ///
-/// assert_eq!(join_iter.next(), Some(JoinItem::Element(&0)));
-/// assert_eq!(join_iter.next(), Some(JoinItem::Separator(&", ")));
-/// assert_eq!(join_iter.next(), Some(JoinItem::Element(&1)));
-/// assert_eq!(join_iter.next(), Some(JoinItem::Separator(&", ")));
-/// assert_eq!(join_iter.next(), Some(JoinItem::Element(&2)));
+/// assert_eq!(join_iter.next(), Some(JoinItem::Element(0)));
+/// assert_eq!(join_iter.next(), Some(JoinItem::Separator(", ")));
+/// assert_eq!(join_iter.next(), Some(JoinItem::Element(1)));
+/// assert_eq!(join_iter.next(), Some(JoinItem::Separator(", ")));
+/// assert_eq!(join_iter.next(), Some(JoinItem::Element(2)));
 /// assert_eq!(join_iter.next(), None);
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]

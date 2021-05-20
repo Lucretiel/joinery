@@ -10,6 +10,9 @@ This changelog was added after the release of 1.0.0; changes before that are lef
 ### Added
 - 0-size `Display` type for `Newline` in `separators`.
 
+### Changed
+- Fix the doctests of `Join`.
+
 ## 2.0.0
 
 2019-02-10
