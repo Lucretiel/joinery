@@ -2,8 +2,13 @@
 
 use core::fmt::{self, Display, Formatter};
 
-use crate::iter::{JoinItem, JoinIter, JoinableIterator};
-use crate::separators::NoSeparator;
+#[cfg(feature = "token-stream")]
+use {proc_macro2::TokenStream, quote::ToTokens};
+
+use crate::{
+    iter::{JoinItem, JoinIter, JoinableIterator},
+    separators::NoSeparator,
+};
 
 /// A trait for converting collections into [`Join`] instances.
 ///
@@ -128,7 +133,7 @@ impl<'a> Separator for &'a str {}
 ///
 /// let content = [0, 1, 2];
 /// let join = ", ".separate(content);
-/// let mut join_iter = join.into_iter();
+/// let mut join_iter = (&join).into_iter();
 ///
 /// assert_eq!(join_iter.next(), Some(JoinItem::Element(&0)));
 /// assert_eq!(join_iter.next(), Some(JoinItem::Separator(&", ")));
@@ -180,6 +185,12 @@ mod private {
     /// for details.
     pub trait Display<'a>: fmt::Display {}
     impl<'a, T: fmt::Display> Display<'a> for T {}
+
+    #[cfg(feature = "token-stream")]
+    pub trait ToTokens<'a>: quote::ToTokens {}
+
+    #[cfg(feature = "token-stream")]
+    impl<'a, T: quote::ToTokens> ToTokens<'a> for T {}
 }
 
 impl<C, S: Display> Display for Join<C, S>
@@ -233,8 +244,29 @@ where
     }
 }
 
+#[cfg(feature = "token-stream")]
+impl<C, S> ToTokens for Join<C, S>
+where
+    for<'a> &'a C: IntoIterator,
+    for<'a> <&'a C as IntoIterator>::Item: private::ToTokens<'a>,
+    S: ToTokens,
+{
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let mut iter = self.collection.into_iter();
+        if let Some(first) = iter.next() {
+            first.to_tokens(tokens);
+
+            iter.for_each(move |item| {
+                self.sep.to_tokens(tokens);
+                item.to_tokens(tokens);
+            })
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+
     use super::{Joinable, Separator};
 
     #[test]
@@ -301,5 +333,30 @@ mod tests {
         assert_eq!(iter.next(), Some(JoinItem::Element(&"World")));
         assert_eq!(iter.next(), None);
         assert_eq!(iter.next(), None);
+    }
+
+    #[cfg(feature = "token-stream")]
+    #[test]
+    fn to_tokens() {
+        use crate::separators::NoSeparator;
+        use quote::quote;
+
+        let functions = vec![
+            quote! {
+                fn test1() {}
+            },
+            quote! {
+                fn test2() {}
+            },
+        ];
+        let join = functions.join_with(NoSeparator);
+
+        let result = quote! { #join };
+        let target = quote! {
+            fn test1() {}
+            fn test2() {}
+        };
+
+        assert_eq!(result.to_string(), target.to_string());
     }
 }

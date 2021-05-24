@@ -8,8 +8,12 @@
 // are no-ops, and optimize heavily, because I'd rather not implement a separate
 // type for empty-separator-joins.
 
-use crate::join::Separator;
 use core::fmt::{self, Display, Formatter};
+
+#[cfg(feature = "token-stream")]
+use {quote::ToTokens, syn::Token};
+
+use crate::join::Separator;
 
 /// Zero-size type representing the empty separator.
 ///
@@ -43,6 +47,11 @@ impl Display for NoSeparator {
 
 impl Separator for NoSeparator {}
 
+#[cfg(feature = "token-stream")]
+impl ToTokens for NoSeparator {
+    fn to_tokens(&self, _tokens: &mut proc_macro2::TokenStream) {}
+}
+
 #[cfg(test)]
 #[test]
 fn test_no_separator() {
@@ -57,7 +66,7 @@ fn test_no_separator() {
 }
 
 macro_rules! const_separator {
-    ($($Name:ident(sep: $sep:expr, repr: $repr:expr, test: $test_name:ident))+) => {$(
+    ($($Name:ident(sep: $sep:expr, repr: $repr:expr, test: $test_name:ident $(, token: $($token:tt)?)? ))+) => {$(
         #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
         #[must_use]
         #[doc = "Zero size type representing the "]
@@ -74,29 +83,62 @@ macro_rules! const_separator {
 
         impl Separator for $Name {}
 
+        $(
+            #[cfg(feature="token-stream")]
+            impl ToTokens for $Name {
+                fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+                    $(
+                        let punct: Token![$token] = Default::default();
+                        punct.to_tokens(tokens);
+                    )?
+                    let _tokens = tokens;
+                }
+            }
+        )?
+
         #[cfg(test)]
-        #[test]
-        fn $test_name() {
+        mod $test_name {
             use crate::separators::$Name;
             use crate::join::Joinable;
 
-            let data = [1, 2, 3];
-            let join = data.join_with($Name);
-            let result = join.to_string();
+            #[test]
+            fn separator() {
+                let data = [1, 2, 3];
+                let join = data.join_with($Name);
+                let result = join.to_string();
 
-            assert_eq!(result, concat!(1, $sep, 2, $sep, 3));
+                assert_eq!(result, concat!(1, $sep, 2, $sep, 3));
+            }
+
+            $(
+                #[cfg(feature="token-stream")]
+                #[test]
+                fn to_tokens() {
+                    use quote::{ToTokens, quote};
+
+                    let data = [1, 2, 3];
+                    let join = data.join_with($Name);
+                    let result = join.into_token_stream();
+
+                    let target = quote! {
+                        1i32 $($token)? 2i32 $($token)? 3i32
+                    };
+
+                    assert_eq!(result.to_string(), target.to_string());
+                }
+            )?
         }
     )+}
 }
 
 const_separator! {
-    Newline(sep: '\n', repr: "newline", test: test_newline)
-    Space(sep: ' ', repr:"space", test:test_space)
-    Comma(sep: ',', repr: "`,`", test: test_comma)
-    CommaSpace(sep: ", ", repr: "comma followed by space", test: test_comma_space)
-    Dot(sep: '.', repr: "`.`", test: test_dot)
-    Slash(sep: '/', repr: "`/`", test: test_slash)
+    Newline(sep: '\n', repr: "newline", test: test_newline, token: )
+    Space(sep: ' ', repr:"space", test: test_space, token: )
+    Comma(sep: ',', repr: "`,`", test: test_comma, token: ,)
+    CommaSpace(sep: ", ", repr: "comma followed by space", test: test_comma_space, token: ,)
+    Dot(sep: '.', repr: "`.`", test: test_dot, token: .)
+    Slash(sep: '/', repr: "`/`", test: test_slash, token: /)
     Underscore(sep: '_', repr: "`_`", test: test_underscore)
-    Dash(sep: '-', repr: "`-`", test: test_dash)
-    Tab(sep: '\t', repr: "tab", test: test_tab)
+    Dash(sep: '-', repr: "`-`", test: test_dash, token: -)
+    Tab(sep: '\t', repr: "tab", test: test_tab, token: )
 }

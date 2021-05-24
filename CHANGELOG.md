@@ -8,6 +8,8 @@ This changelog was added after the release of 1.0.0; changes before that are lef
 ## Unlreleased
 
 ### Added
+
+- Added `token-stream` feature which, when enabled, provides a `ToTokens` implementation to `Join`. This allows `Join` objects to be used as lazy token streams in `quote`.
 - 0-size `Display` type for `Newline` in `separators`.
 
 ## 2.0.0
@@ -21,20 +23,23 @@ Major redesign of library. Most idiomatic joinery code should continue to work, 
 - Iterators and collections are now treated separately. The `Join` struct is now based on collections, which are types which implement referential iteration (that is, for which `&T: IntoIterator`).
 - Iterators can be adapted into `Join` instances via the `CloneIterator` adapter, which adds `&T: IntoIterator` to types that are `T: Clone + Iterator`.
 - While the types have drastically changed, idiomatic code (which imports the prelude and uses mainly the `join_with` method) should continue to function
-correctly.
+  correctly.
 
 ### Changed
+
 - Split the library into various modules for the different functionality.
-    - `join` contains the `Join` type and related traits.
-    - `iter` contains the `JoinIter` type and related traits and structs.
-    - `separators` contains various convenient 0-size `Display` types for common separators, like `Comma` and `Space`.
+  - `join` contains the `Join` type and related traits.
+  - `iter` contains the `JoinIter` type and related traits and structs.
+  - `separators` contains various convenient 0-size `Display` types for common separators, like `Comma` and `Space`.
 
 ### Added
+
 - `JoinableIterator` trait, which allows joining iterators directly via `iter_join_with`, or adapting them into `Join` structs via `join_with`
 - Added numerous extra 0-size separator types, like `Comma` and `Space`, for common separators.
 - Advanced to Rust 2018 Edition.
 
 ### Removed
+
 - `NoSeparator` removed from the prelude, since it's generally preferable to use `join_concat`
 - Many methods on `Join` were deemed too niche and removed as part of the redesign, such as `partial_clone` and `consume_fmt`.
 
@@ -91,6 +96,7 @@ correctly.
   - Added `join_concat`, a helper method for separator-free joins.
 
 ### Removed
+
 - Removed `try_fold` after discovering serious implementation bug.
   - Added test demonstrating this bug
   - Would like to re-add someday, but seems difficult or impossible.

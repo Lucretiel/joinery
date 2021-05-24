@@ -14,10 +14,14 @@ travis-ci = { repository = "Lucretiel/joinery" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
+proc-macro2 = { version = "1.0.27", optional = true, default-features = false }
+quote = { version = "1.0.9", optional = true, default-features = false }
+syn = { version = "1.0.72", optional = true, default-features = false, features = ["printing"] }
 
 [features]
 # These features are performance-enhancing but use nightly-only rust.
 nightly = []
+token-stream = ["quote", "proc-macro2", "syn"]
 
 # docs.rs stuff
 [package.metadata.docs.rs]
