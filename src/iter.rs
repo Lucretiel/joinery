@@ -1,13 +1,18 @@
 //! Joinery iterator and related types and traits
 
-use core::fmt::{self, Debug, Display, Formatter};
-use core::iter::{FusedIterator, Peekable};
+use core::{
+    fmt::{self, Debug, Display, Formatter},
+    iter::FusedIterator,
+    mem,
+};
 
 #[cfg(feature = "nightly")]
-use core::iter::TrustedLen;
+use core::{iter::TrustedLen, ops::Try};
 
-use crate::join::{Join, Joinable};
-use crate::separators::NoSeparator;
+use crate::{
+    join::{Join, Joinable},
+    separators::NoSeparator,
+};
 
 /// Specialized helper struct to allow adapting any [`Iterator`] into a [`Join`].
 ///
@@ -175,6 +180,19 @@ impl<T: Display, S: Display> Display for JoinItem<T, S> {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+enum JoinIterState<T> {
+    /// Unconditionally yield the first item from the inner iterator
+    Initial,
+
+    /// Yield a separator if there's an item in the inner iterator
+    Separator,
+
+    /// We got an item from the iterator and yielded a separator, so yield
+    /// an item
+    Element(T),
+}
+
 /// An iterator for a [`Join`].
 ///
 /// Emits the elements of the [`Join`]'s underlying iterator, interspersed with
@@ -221,18 +239,18 @@ impl<T: Display, S: Display> Display for JoinItem<T, S> {
 /// ```
 #[must_use]
 pub struct JoinIter<Iter: Iterator, Sep> {
-    iter: Peekable<Iter>,
+    iter: Iter,
     sep: Sep,
-    next_sep: bool,
+    state: JoinIterState<Iter::Item>,
 }
 
 impl<I: Iterator, S> JoinIter<I, S> {
     /// Construct a new [`JoinIter`] using an iterator and a separator
     fn new(iter: I, sep: S) -> Self {
         JoinIter {
-            iter: iter.peekable(),
+            iter,
             sep,
-            next_sep: false,
+            state: JoinIterState::Initial,
         }
     }
 }
@@ -257,70 +275,13 @@ impl<I: Iterator, S> JoinIter<I, S> {
     /// ```
     #[inline]
     pub fn is_sep_next(&self) -> bool {
-        self.next_sep
+        matches!(self.state, JoinIterState::Separator)
     }
 
     /// Get a reference to the separator.
     #[inline]
     pub fn sep(&self) -> &S {
         &self.sep
-    }
-
-    /// Peek at what the next item in the iterator will be without consuming
-    /// it. Note that this interface is similar, but not identical, to
-    /// [`Peekable::peek`].
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use joinery::{JoinableIterator, JoinItem};
-    ///
-    /// let mut join_iter = (0..3).join_with(", ").into_iter();
-    ///
-    /// assert_eq!(join_iter.peek(), Some(JoinItem::Element(&0)));
-    /// assert_eq!(join_iter.next(), Some(JoinItem::Element(0)));
-    /// assert_eq!(join_iter.peek(), Some(JoinItem::Separator(&", ")));
-    /// assert_eq!(join_iter.next(), Some(JoinItem::Separator(", ")));
-    /// assert_eq!(join_iter.peek(), Some(JoinItem::Element(&1)));
-    /// assert_eq!(join_iter.next(), Some(JoinItem::Element(1)));
-    /// ```
-    pub fn peek(&mut self) -> Option<JoinItem<&I::Item, &S>> {
-        let sep = &self.sep;
-        let next_sep = self.next_sep;
-
-        self.iter.peek().map(move |element| {
-            if next_sep {
-                JoinItem::Separator(sep)
-            } else {
-                JoinItem::Element(element)
-            }
-        })
-    }
-
-    /// Peek at what the next non-separator item in the iterator will be
-    /// without consuming it.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use joinery::{Joinable, JoinItem};
-    ///
-    /// let mut join_iter = vec!["This", "is", "a", "sentence"].join_with(' ').into_iter();
-    ///
-    /// assert_eq!(join_iter.peek_element(), Some(&"This"));
-    /// assert_eq!(join_iter.peek(), Some(JoinItem::Element(&"This")));
-    /// assert_eq!(join_iter.next(), Some(JoinItem::Element("This")));
-    ///
-    /// assert_eq!(join_iter.peek_element(), Some(&"is"));
-    /// assert_eq!(join_iter.peek(), Some(JoinItem::Separator(&' ')));
-    /// assert_eq!(join_iter.next(), Some(JoinItem::Separator(' ')));
-    ///
-    /// assert_eq!(join_iter.peek_element(), Some(&"is"));
-    /// assert_eq!(join_iter.peek(), Some(JoinItem::Element(&"is")));
-    /// assert_eq!(join_iter.next(), Some(JoinItem::Element("is")));
-    /// ```
-    pub fn peek_element(&mut self) -> Option<&I::Item> {
-        self.iter.peek()
     }
 }
 
@@ -332,7 +293,7 @@ where
         f.debug_struct("JoinIter")
             .field("iter", &self.iter)
             .field("sep", &self.sep)
-            .field("next_sep", &self.next_sep)
+            .field("state", &self.state)
             .finish()
     }
 }
@@ -345,14 +306,14 @@ where
         JoinIter {
             iter: self.iter.clone(),
             sep: self.sep.clone(),
-            next_sep: self.next_sep,
+            state: self.state.clone(),
         }
     }
 
     fn clone_from(&mut self, source: &Self) {
         self.iter.clone_from(&source.iter);
         self.sep.clone_from(&source.sep);
-        self.next_sep = source.next_sep;
+        self.state.clone_from(&source.state);
     }
 }
 
@@ -362,16 +323,14 @@ where
 /// function in the hopes that it will aid compiler optimization, and also with
 /// the intention that in the future it will be a `const fn`.
 #[inline]
-fn join_size(iter_size: usize, next_sep: bool) -> Option<usize> {
-    if iter_size == 0 {
-        Some(0)
-    } else if next_sep {
-        iter_size.checked_mul(2)
-    } else {
-        // TODO: this might be faster with wrapping operations and explicit checks
-        // Interestingly, If checked_mul didn't overflow, then the +1 is also
-        // guarenteed to not overflow.
-        (iter_size - 1).checked_mul(2).map(|val| val + 1)
+fn join_size<T>(iter_size: usize, state: &JoinIterState<T>) -> Option<usize> {
+    match *state {
+        JoinIterState::Initial => match iter_size {
+            0 => Some(0),
+            _ => (iter_size - 1).checked_mul(2)?.checked_add(1),
+        },
+        JoinIterState::Separator => iter_size.checked_mul(2),
+        JoinIterState::Element(..) => iter_size.checked_mul(2)?.checked_add(1),
     }
 }
 
@@ -384,57 +343,72 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
     // (mostly) branchless versions, similar to `(Join as Display)::fmt`
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        let sep = &self.sep;
-        let next_sep = &mut self.next_sep;
-
-        if *next_sep {
-            self.iter.peek().map(|_| {
-                *next_sep = false;
-                JoinItem::Separator(sep.clone())
-            })
-        } else {
-            self.iter.next().map(|element| {
-                *next_sep = true;
-                JoinItem::Element(element)
-            })
+        match mem::replace(&mut self.state, JoinIterState::Separator) {
+            JoinIterState::Initial => self.iter.next().map(JoinItem::Element),
+            JoinIterState::Separator => self.iter.next().map(|element| {
+                self.state = JoinIterState::Element(element);
+                JoinItem::Separator(self.sep.clone())
+            }),
+            JoinIterState::Element(element) => Some(JoinItem::Element(element)),
         }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         let (min, max) = self.iter.size_hint();
 
-        let min = join_size(min, self.next_sep).unwrap_or(core::usize::MAX);
-        let max = max.and_then(|max| join_size(max, self.next_sep));
+        let min = join_size(min, &self.state).unwrap_or(core::usize::MAX);
+        let max = max.and_then(|max| join_size(max, &self.state));
 
         (min, max)
     }
 
-    fn fold<B, F>(self, init: B, mut func: F) -> B
+    fn fold<B, F>(mut self, init: B, mut func: F) -> B
     where
         F: FnMut(B, Self::Item) -> B,
     {
-        let mut iter = self.iter.map(JoinItem::Element);
-        let sep = self.sep;
-
-        let accum = if self.next_sep {
-            init
-        } else {
-            match iter.next() {
+        let accum = match self.state {
+            JoinIterState::Initial => match self.iter.next() {
                 None => return init,
-                Some(element) => func(init, element),
-            }
+                Some(element) => func(init, JoinItem::Element(element)),
+            },
+            JoinIterState::Separator => init,
+            JoinIterState::Element(element) => func(init, JoinItem::Element(element)),
         };
 
-        iter.fold(accum, move |accum, element| {
-            let accum = func(accum, JoinItem::Separator(sep.clone()));
-            func(accum, element)
+        self.iter.fold(accum, move |accum, element| {
+            let accum = func(accum, JoinItem::Separator(self.sep.clone()));
+            func(accum, JoinItem::Element(element))
         })
     }
 
-    // TODO: Add try_fold implementation based on self.iter.try_fold.
-    // Unfortunately, this will be difficult (and probably impossible), because
-    // when the reducer function is called, it has to process both the element
-    // and the separator, either of which could result in an early return.
+    #[cfg(feature = "nightly")]
+    fn try_fold<B, F, R>(&mut self, init: B, mut func: F) -> R
+    where
+        Self: Sized,
+        F: FnMut(B, Self::Item) -> R,
+        R: Try<Output = B>,
+    {
+        use core::ops::ControlFlow;
+
+        let accum = match mem::replace(&mut self.state, JoinIterState::Separator) {
+            JoinIterState::Initial => match self.iter.next() {
+                None => return R::from_output(init),
+                Some(element) => func(init, JoinItem::Element(element))?,
+            },
+            JoinIterState::Separator => init,
+            JoinIterState::Element(element) => func(init, JoinItem::Element(element))?,
+        };
+
+        self.iter.try_fold(accum, |accum, element| {
+            match func(accum, JoinItem::Separator(self.sep.clone())).branch() {
+                ControlFlow::Break(err) => {
+                    self.state = JoinIterState::Element(element);
+                    R::from_residual(err)
+                }
+                ControlFlow::Continue(accum) => func(accum, JoinItem::Element(element)),
+            }
+        })
+    }
 }
 
 impl<I: FusedIterator, S: Clone> FusedIterator for JoinIter<I, S> {}

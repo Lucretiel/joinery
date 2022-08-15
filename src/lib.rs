@@ -1,5 +1,6 @@
 #![cfg_attr(not(test), no_std)]
 #![cfg_attr(feature = "nightly", feature(trusted_len))]
+#![cfg_attr(feature = "nightly", feature(try_trait_v2))]
 
 //! Joinery provides generic joining of iterables with separators. While it is
 //! primarily designed the typical use case of writing to a [writer][core::fmt::Write]
