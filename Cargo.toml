@@ -1,6 +1,6 @@
 [package]
 name = "joinery"
-version = "2.1.0"
+version = "3.0.0"
 authors = ["Nathan West <Lucretiel@gmail.com>"]
 readme = "README.md"
 license = "MIT"
@@ -19,9 +19,10 @@ quote = { version = "1.0.9", optional = true, default-features = false }
 syn = { version = "1.0.72", optional = true, default-features = false, features = ["printing"] }
 
 [features]
+token-stream = ["quote", "proc-macro2", "syn"]
+
 # These features are performance-enhancing but use nightly-only rust.
 nightly = []
-token-stream = ["quote", "proc-macro2", "syn"]
 
 # docs.rs stuff
 [package.metadata.docs.rs]

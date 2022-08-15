@@ -5,7 +5,20 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 This changelog was added after the release of 1.0.0; changes before that are left undocumented.
 
-## Unreleased
+## 3.0.0
+
+Removed some methods to allow for a more efficient implementation of `JoinIter`. If you weren't using `peek` or `peek_item` you should be able to upgrade without issue.
+
+### Changed
+
+- More efficient implementation of `JoinIter`. No more reduntant states allows for a manual `try_fold` implementation, at the cost of the `peek` family of methods
+- Now using Edition 2021
+- No longer need to use the `private::Display<'a>` hack
+
+### Removed
+
+- Removed `peek` and `peek_item`
+
 
 ## 2.1.0
 
