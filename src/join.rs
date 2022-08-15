@@ -176,27 +176,10 @@ impl<C, S> Join<C, S> {
     }
 }
 
-mod private {
-    use core::fmt;
-
-    /// This variant Display trait includes a lifetime bound, which is (for
-    /// some reason) required in order to make the trait bounds work when implementing
-    /// [`Display`] for [`Join`]. See https://stackoverflow.com/q/53364798/864406
-    /// for details.
-    pub trait Display<'a>: fmt::Display {}
-    impl<'a, T: fmt::Display> Display<'a> for T {}
-
-    #[cfg(feature = "token-stream")]
-    pub trait ToTokens<'a>: quote::ToTokens {}
-
-    #[cfg(feature = "token-stream")]
-    impl<'a, T: quote::ToTokens> ToTokens<'a> for T {}
-}
-
 impl<C, S: Display> Display for Join<C, S>
 where
     for<'a> &'a C: IntoIterator,
-    for<'a> <&'a C as IntoIterator>::Item: private::Display<'a>,
+    for<'a> <&'a C as IntoIterator>::Item: Display,
 {
     /// Format the joined collection, by writing out each element of the
     /// collection, separated by the separator.
@@ -248,7 +231,7 @@ where
 impl<C, S> ToTokens for Join<C, S>
 where
     for<'a> &'a C: IntoIterator,
-    for<'a> <&'a C as IntoIterator>::Item: private::ToTokens<'a>,
+    for<'a> <&'a C as IntoIterator>::Item: ToTokens,
     S: ToTokens,
 {
     fn to_tokens(&self, tokens: &mut TokenStream) {
