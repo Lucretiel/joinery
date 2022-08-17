@@ -18,7 +18,7 @@ Removed some methods to allow for a more efficient implementation of `JoinIter`.
 ### Removed
 
 - Removed `peek` and `peek_item`
-
+- Removed `syn` dependency
 
 ## 2.1.0
 
