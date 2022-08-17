@@ -10,9 +10,6 @@
 
 use core::fmt::{self, Display, Formatter};
 
-#[cfg(feature = "token-stream")]
-use {quote::ToTokens, syn::Token};
-
 use crate::join::Separator;
 
 /// Zero-size type representing the empty separator.
@@ -48,7 +45,7 @@ impl Display for NoSeparator {
 impl Separator for NoSeparator {}
 
 #[cfg(feature = "token-stream")]
-impl ToTokens for NoSeparator {
+impl quote::ToTokens for NoSeparator {
     fn to_tokens(&self, _tokens: &mut proc_macro2::TokenStream) {}
 }
 
@@ -85,11 +82,10 @@ macro_rules! const_separator {
 
         $(
             #[cfg(feature="token-stream")]
-            impl ToTokens for $Name {
+            impl quote::ToTokens for $Name {
                 fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
                     $(
-                        let punct: Token![$token] = Default::default();
-                        punct.to_tokens(tokens);
+                        tokens.extend(token!($token));
                     )?
                     let _tokens = tokens;
                 }
@@ -129,6 +125,21 @@ macro_rules! const_separator {
             )?
         }
     )+}
+}
+
+#[cfg(feature = "token-stream")]
+macro_rules! token {
+    (.) => { token!(token '.') };
+    (,) => { token!(token ',') };
+    (/) => { token!(token '/') };
+    (-) => { token!(token '-') };
+
+    (token $token:literal) => {
+        [proc_macro2::TokenTree::Punct(proc_macro2::Punct::new(
+            $token,
+            proc_macro2::Spacing::Alone,
+        ))]
+    };
 }
 
 const_separator! {
