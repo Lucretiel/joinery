@@ -362,6 +362,30 @@ impl<I: Iterator, S: Clone> Iterator for JoinIter<I, S> {
         (min, max)
     }
 
+    fn count(self) -> usize
+    where
+        Self: Sized,
+    {
+        match self.state {
+            JoinIterState::Initial => (self.iter.count() * 2).saturating_sub(1),
+            JoinIterState::Separator => self.iter.count() * 2,
+            JoinIterState::Element(_) => self.iter.count() * 2 + 1,
+        }
+    }
+
+    fn last(self) -> Option<Self::Item>
+    where
+        Self: Sized,
+    {
+        self.iter
+            .last()
+            .or(match self.state {
+                JoinIterState::Initial | JoinIterState::Separator => None,
+                JoinIterState::Element(item) => Some(item),
+            })
+            .map(JoinItem::Element)
+    }
+
     fn fold<B, F>(mut self, init: B, mut func: F) -> B
     where
         F: FnMut(B, Self::Item) -> B,
@@ -563,5 +587,78 @@ mod tests {
 
         // At this point, the remaining elements in the iterator SHOULD be E(2), S(1), E(3)
         assert_eq!(join_iter.count(), 3);
+    }
+
+    #[test]
+    fn last_empty() {
+        let content: [i32; 0] = [];
+        let join_iter = content.iter().iter_join_with(0);
+
+        assert_eq!(join_iter.last(), None);
+    }
+
+    #[test]
+    fn last_only() {
+        let content = [1];
+        let join_iter = content.iter().iter_join_with(0);
+
+        assert_eq!(join_iter.last(), Some(Element(&1)));
+    }
+
+    #[test]
+    fn last_initial() {
+        let content = [1, 2, 3];
+        let join_iter = content.iter().iter_join_with(0);
+
+        assert_eq!(join_iter.last(), Some(Element(&3)));
+    }
+
+    #[test]
+    fn last_sep() {
+        let content = [1, 2, 3];
+        let mut join_iter = content.iter().iter_join_with(0);
+        join_iter.next().unwrap();
+
+        assert_eq!(join_iter.last(), Some(Element(&3)));
+    }
+
+    #[test]
+    fn last_element() {
+        let content = [1, 2, 3];
+        let mut join_iter = content.iter().iter_join_with(0);
+        join_iter.next().unwrap();
+        join_iter.next().unwrap();
+
+        assert_eq!(join_iter.last(), Some(Element(&3)));
+    }
+
+    #[test]
+    fn last_sep_2() {
+        let content = [1, 2];
+        let mut join_iter = content.iter().iter_join_with(0);
+        join_iter.next().unwrap();
+
+        assert_eq!(join_iter.last(), Some(Element(&2)));
+    }
+
+    #[test]
+    fn last_element_2() {
+        let content = [1, 2];
+        let mut join_iter = content.iter().iter_join_with(0);
+        join_iter.next().unwrap();
+        join_iter.next().unwrap();
+
+        assert_eq!(join_iter.last(), Some(Element(&2)));
+    }
+
+    #[test]
+    fn last_emptied() {
+        let content = [1, 2];
+        let mut join_iter = content.iter().iter_join_with(0);
+        join_iter.next().unwrap();
+        join_iter.next().unwrap();
+        join_iter.next().unwrap();
+
+        assert_eq!(join_iter.last(), None);
     }
 }
