@@ -5,6 +5,12 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 This changelog was added after the release of 1.0.0; changes before that are left undocumented.
 
+## 3.1.0
+
+### Internal
+
+- Added optimized implementations of `Iterator::last` and `Iterator::count`
+
 ## 3.0.0
 
 Removed some methods to allow for a more efficient implementation of `JoinIter`. If you weren't using `peek` or `peek_item` you should be able to upgrade without issue.
