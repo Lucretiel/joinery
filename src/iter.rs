@@ -325,9 +325,9 @@ where
 #[inline]
 fn join_size<T>(iter_size: usize, state: &JoinIterState<T>) -> Option<usize> {
     match *state {
-        JoinIterState::Initial => match iter_size {
-            0 => Some(0),
-            _ => (iter_size - 1).checked_mul(2)?.checked_add(1),
+        JoinIterState::Initial => match iter_size.checked_sub(1) {
+            None => Some(0),
+            Some(iter_size) => iter_size.checked_mul(2)?.checked_add(1),
         },
         JoinIterState::Separator => iter_size.checked_mul(2),
         JoinIterState::Element(..) => iter_size.checked_mul(2)?.checked_add(1),
