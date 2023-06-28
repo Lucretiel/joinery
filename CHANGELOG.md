@@ -5,6 +5,12 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 This changelog was added after the release of 1.0.0; changes before that are left undocumented.
 
+## Unreleased
+
+### Internal
+
+- Minor style improvement to `join_size` helper function
+
 ## 3.1.0
 
 ### Internal
